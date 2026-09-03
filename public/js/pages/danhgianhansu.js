@@ -451,24 +451,20 @@
             html += `
                 <tr style="border-bottom: 1px solid #f1f5f9; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background='white'" onclick="window._eeOpenDetailModal(${item.id})">
                     <td style="padding: 8px 4px; text-align: center; font-weight: 700; color: #1e40af; background: #f0f9ff; border-right: 1px solid #e2e8f0; font-size: 11.5px;">${monthShort}</td>
-                    <td style="padding: 8px 4px; text-align: center; font-weight: 700; color: #64748b; border-right: 1px solid #e2e8f0; font-size: 11.5px;">${idx + 1}</td>
-                    <td style="padding: 8px 6px; font-weight: 800; color: #0f172a; border-right: 1px solid #e2e8f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px;" title="${item.employee_name}">${item.employee_name || '--'}</td>
-                    <td style="padding: 8px 4px; border-right: 1px solid #e2e8f0; text-align: center;" title="${item.department}">${_getDeptBadgeHtml(item.department)}</td>
-                    
-                    <td style="padding: 8px 6px; border-right: 1px solid #e2e8f0; color: #dc2626; font-weight: 600; word-break: break-word; line-height: 1.35; font-size: 12px;" title="${item.improvement_errors}">${_clampText(item.improvement_errors)}</td>
-                    <td style="padding: 8px 6px; border-right: 1px solid #e2e8f0; color: #334155; word-break: break-word; line-height: 1.35; font-size: 12px;" title="${item.manager_evaluation}">${_clampText(item.manager_evaluation)}</td>
-                    <td style="padding: 8px 6px; border-right: 1px solid #e2e8f0; color: #2563eb; font-weight: 600; word-break: break-word; line-height: 1.35; font-size: 12px;" title="${item.remediation_action}">${_clampText(item.remediation_action)}</td>
-                    <td style="padding: 8px 6px; border-right: 1px solid #e2e8f0; color: #7c3aed; word-break: break-word; line-height: 1.35; font-size: 12px;" title="${item.training_direction}">${_clampText(item.training_direction)}</td>
-                    <td style="padding: 8px 6px; border-right: 1px solid #e2e8f0; color: #059669; word-break: break-word; line-height: 1.35; font-size: 12px;" title="${item.manager_commitment}">${_clampText(item.manager_commitment)}</td>
+                    <td style="padding: 8px 4px; text-align:                     <td style="padding: 8px 6px; border-right: 1px solid #e2e8f0; color: #dc2626; font-weight: 600; word-break: break-word; line-height: 1.35; font-size: 12px; white-space: pre-wrap;" title="${item.improvement_errors}">${_clampText(item.improvement_errors)}</td>
+                    <td style="padding: 8px 6px; border-right: 1px solid #e2e8f0; color: #334155; word-break: break-word; line-height: 1.35; font-size: 12px; white-space: pre-wrap;" title="${item.manager_evaluation}">${_clampText(item.manager_evaluation)}</td>
+                    <td style="padding: 8px 6px; border-right: 1px solid #e2e8f0; color: #2563eb; font-weight: 600; word-break: break-word; line-height: 1.35; font-size: 12px; white-space: pre-wrap;" title="${item.remediation_action}">${_clampText(item.remediation_action)}</td>
+                    <td style="padding: 8px 6px; border-right: 1px solid #e2e8f0; color: #7c3aed; word-break: break-word; line-height: 1.35; font-size: 12px; white-space: pre-wrap;" title="${item.training_direction}">${_clampText(item.training_direction)}</td>
+                    <td style="padding: 8px 6px; border-right: 1px solid #e2e8f0; color: #059669; word-break: break-word; line-height: 1.35; font-size: 12px; white-space: pre-wrap;" title="${item.manager_commitment}">${_clampText(item.manager_commitment)}</td>
                     
                     <!-- Pink Section: Employee Input -->
-                    <td style="padding: 8px 6px; background: #fdf2f8; border-right: 1px solid #fbcfe8; color: #be185d; word-break: break-word; line-height: 1.35; font-size: 12px;" title="${item.employee_opinion}">${_clampText(item.employee_opinion)}</td>
+                    <td style="padding: 8px 6px; background: #fdf2f8; border-right: 1px solid #fbcfe8; color: #be185d; word-break: break-word; line-height: 1.35; font-size: 12px; white-space: pre-wrap;" title="${item.employee_opinion}">${_clampText(item.employee_opinion)}</td>
                     <td style="padding: 8px 4px; background: #fdf2f8; border-right: 1px solid #fbcfe8; font-weight: 700; color: #9d174d; font-size: 11.5px; text-align: center;" title="${item.resolution_deadline}">${item.resolution_deadline || '--'}</td>
-                    <td style="padding: 8px 6px; background: #fdf2f8; border-right: 1px solid #fbcfe8; color: #be185d; word-break: break-word; line-height: 1.35; font-size: 12px;" title="${item.employee_commitment}">${_clampText(item.employee_commitment)}</td>
+                    <td style="padding: 8px 6px; background: #fdf2f8; border-right: 1px solid #fbcfe8; color: #be185d; word-break: break-word; line-height: 1.35; font-size: 12px; white-space: pre-wrap;" title="${item.employee_commitment}">${_clampText(item.employee_commitment)}</td>
                     
                     <!-- Teal Section: Progress Report -->
-                    <td style="padding: 8px 6px; background: #f0f9ff; border-right: 1px solid #bae6fd; color: #0369a1; word-break: break-word; line-height: 1.35; font-size: 12px;" title="${item.manager_report}">${_clampText(item.manager_report)}</td>
-                    <td style="padding: 8px 6px; background: #f0f9ff; border-right: 1px solid #bae6fd; color: #0369a1; word-break: break-word; line-height: 1.35; font-size: 12px;" title="${item.employee_report}">${_clampText(item.employee_report)}</td>
+                    <td style="padding: 8px 6px; background: #f0f9ff; border-right: 1px solid #bae6fd; color: #0369a1; word-break: break-word; line-height: 1.35; font-size: 12px; white-space: pre-wrap;" title="${item.manager_report}">${_clampText(item.manager_report)}</td>
+                    <td style="padding: 8px 6px; background: #f0f9ff; border-right: 1px solid #bae6fd; color: #0369a1; word-break: break-word; line-height: 1.35; font-size: 12px; white-space: pre-wrap;" title="${item.employee_report}">${_clampText(item.employee_report)}</td>
                     
                     <!-- Actions -->
                     <td style="padding: 8px 4px; text-align: center;" onclick="event.stopPropagation()">
@@ -519,28 +515,28 @@
                     <!-- Card Body -->
                     <div style="padding: 16px; display: flex; flex-direction: column; gap: 12px; flex: 1;">
                         <!-- Manager Section -->
-                        <div style="background: #f8fafc; padding: 12px; border-radius: 10px; border-left: 4px solid #1e3a8a;">
+                        <div style="background: #f8fafc; padding: 12px; border-radius: 10px; border-left: 4px solid #1e40af;">
                             <div style="font-size: 11px; font-weight: 800; color: #1e3a8a; text-transform: uppercase; margin-bottom: 6px;">👨‍💼 Đánh Giá Từ Quản Lý</div>
-                            <div style="font-size: 12px; color: #dc2626; font-weight: 700; margin-bottom: 4px;">⚠️ Lỗi/Cải thiện: <span style="font-weight: 500; color: #334155;">${item.improvement_errors || '--'}</span></div>
-                            <div style="font-size: 12px; color: #334155; margin-bottom: 4px;">📊 Đánh giá năng lực: <span>${item.manager_evaluation || '--'}</span></div>
-                            <div style="font-size: 12px; color: #2563eb; font-weight: 700; margin-bottom: 4px;">🛠️ Khắc phục: <span style="font-weight: 500; color: #334155;">${item.remediation_action || '--'}</span></div>
-                            <div style="font-size: 12px; color: #7c3aed; font-weight: 700; margin-bottom: 4px;">🎓 Hướng đào tạo: <span style="font-weight: 500; color: #334155;">${item.training_direction || '--'}</span></div>
-                            <div style="font-size: 12px; color: #059669; font-weight: 700;">🤝 Cam kết QL: <span style="font-weight: 500; color: #334155;">${item.manager_commitment || '--'}</span></div>
+                            <div style="font-size: 12px; color: #dc2626; font-weight: 700; margin-bottom: 4px; white-space: pre-wrap;">⚠️ Cải thiện / Lỗi: <span style="font-weight: 500; color: #334155;">${item.improvement_errors || '--'}</span></div>
+                            <div style="font-size: 12px; color: #334155; margin-bottom: 4px; white-space: pre-wrap;">📊 Đánh giá năng lực: <span>${item.manager_evaluation || '--'}</span></div>
+                            <div style="font-size: 12px; color: #2563eb; font-weight: 700; margin-bottom: 4px; white-space: pre-wrap;">🛠️ Khắc phục: <span style="font-weight: 500; color: #334155;">${item.remediation_action || '--'}</span></div>
+                            <div style="font-size: 12px; color: #7c3aed; font-weight: 700; margin-bottom: 4px; white-space: pre-wrap;">🎓 Hướng đào tạo: <span style="font-weight: 500; color: #334155;">${item.training_direction || '--'}</span></div>
+                            <div style="font-size: 12px; color: #059669; font-weight: 700; white-space: pre-wrap;">🤝 Cam kết QL: <span style="font-weight: 500; color: #334155;">${item.manager_commitment || '--'}</span></div>
                         </div>
 
                         <!-- Employee Section -->
                         <div style="background: #fdf2f8; padding: 12px; border-radius: 10px; border-left: 4px solid #db2777;">
                             <div style="font-size: 11px; font-weight: 800; color: #be185d; text-transform: uppercase; margin-bottom: 6px;">💬 Ý Kiến & Cam Kết Nhân Sự</div>
-                            <div style="font-size: 12px; color: #be185d; margin-bottom: 4px;">Ý kiến: <span style="color: #334155;">${item.employee_opinion || '--'}</span></div>
+                            <div style="font-size: 12px; color: #be185d; margin-bottom: 4px; white-space: pre-wrap;">Ý kiến: <span style="color: #334155;">${item.employee_opinion || '--'}</span></div>
                             <div style="font-size: 12px; color: #be185d; margin-bottom: 4px;">⏰ Hạn xử lý: <span style="font-weight: 800; color: #9d174d;">${item.resolution_deadline || '--'}</span></div>
-                            <div style="font-size: 12px; color: #be185d;">Cam kết: <span style="color: #334155;">${item.employee_commitment || '--'}</span></div>
+                            <div style="font-size: 12px; color: #be185d; white-space: pre-wrap;">Cam kết: <span style="color: #334155;">${item.employee_commitment || '--'}</span></div>
                         </div>
 
                         <!-- Progress Report Section -->
                         <div style="background: #f0f9ff; padding: 12px; border-radius: 10px; border-left: 4px solid #0284c7;">
                             <div style="font-size: 11px; font-weight: 800; color: #0369a1; text-transform: uppercase; margin-bottom: 6px;">📊 Báo Cáo Tiến Độ</div>
-                            <div style="font-size: 12px; color: #0369a1; margin-bottom: 4px;">Quản lý báo cáo: <span style="color: #334155;">${item.manager_report || '--'}</span></div>
-                            <div style="font-size: 12px; color: #0369a1;">Nhân sự báo cáo: <span style="color: #334155;">${item.employee_report || '--'}</span></div>
+                            <div style="font-size: 12px; color: #0369a1; margin-bottom: 4px; white-space: pre-wrap;">Quản lý báo cáo: <span style="color: #334155;">${item.manager_report || '--'}</span></div>
+                            <div style="font-size: 12px; color: #0369a1; white-space: pre-wrap;">Nhân sự báo cáo: <span style="color: #334155;">${item.employee_report || '--'}</span></div>
                         </div>
                     </div>
                 </div>
@@ -579,20 +575,31 @@
                         <div style="background: #f8fafc; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0;">
                             <h4 style="margin: 0 0 10px 0; color: #1e3a8a; font-size: 14px; font-weight: 800;">👨‍💼 1. ĐÁNH GIÁ TỪ QUẢN LÝ</h4>
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 13px;">
-                                <div><strong style="color: #dc2626;">Cải thiện / Lỗi:</strong> ${item.improvement_errors || '--'}</div>
-                                <div><strong style="color: #334155;">Đánh giá năng lực:</strong> ${item.manager_evaluation || '--'}</div>
-                                <div><strong style="color: #2563eb;">Nhân sự khắc phục:</strong> ${item.remediation_action || '--'}</div>
-                                <div><strong style="color: #7c3aed;">Hướng đào tạo:</strong> ${item.training_direction || '--'}</div>
-                                <div style="grid-column: span 2;"><strong style="color: #059669;">Cam kết của Quản lý:</strong> ${item.manager_commitment || '--'}</div>
+                                <div style="white-space: pre-wrap;"><strong style="color: #dc2626;">Cải thiện / Lỗi:</strong> ${item.improvement_errors || '--'}</div>
+                                <div style="white-space: pre-wrap;"><strong style="color: #334155;">Đánh giá năng lực:</strong> ${item.manager_evaluation || '--'}</div>
+                                <div style="white-space: pre-wrap;"><strong style="color: #2563eb;">Nhân sự khắc phục:</strong> ${item.remediation_action || '--'}</div>
+                                <div style="white-space: pre-wrap;"><strong style="color: #7c3aed;">Hướng đào tạo:</strong> ${item.training_direction || '--'}</div>
+                                <div style="grid-column: span 2; white-space: pre-wrap;"><strong style="color: #059669;">Cam kết của Quản lý:</strong> ${item.manager_commitment || '--'}</div>
                             </div>
                         </div>
 
                         <div style="background: #fdf2f8; padding: 16px; border-radius: 12px; border: 1px solid #fbcfe8;">
                             <h4 style="margin: 0 0 10px 0; color: #be185d; font-size: 14px; font-weight: 800;">💬 2. Ý KIẾN & CAM KẾT TỪ NHÂN SỰ</h4>
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 13px;">
-                                <div><strong style="color: #be185d;">Ý kiến nhân sự:</strong> ${item.employee_opinion || '--'}</div>
+                                <div style="white-space: pre-wrap;"><strong style="color: #be185d;">Ý kiến nhân sự:</strong> ${item.employee_opinion || '--'}</div>
                                 <div><strong style="color: #9d174d;">Hạn xử lý (Time):</strong> ${item.resolution_deadline || '--'}</div>
-                                <div style="grid-column: span 2;"><strong style="color: #be185d;">Cam kết nhân sự:</strong> ${item.employee_commitment || '--'}</div>
+                                <div style="grid-column: span 2; white-space: pre-wrap;"><strong style="color: #be185d;">Cam kết nhân sự:</strong> ${item.employee_commitment || '--'}</div>
+                            </div>
+                        </div>
+
+                        <div style="background: #f0f9ff; padding: 16px; border-radius: 12px; border: 1px solid #bae6fd;">
+                            <h4 style="margin: 0 0 10px 0; color: #0284c7; font-size: 14px; font-weight: 800;">📊 3. BÁO CÁO TIẾN ĐỘ THỰC HIỆN</h4>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 13px;">
+                                <div style="white-space: pre-wrap;"><strong style="color: #0369a1;">Quản lý báo cáo:</strong> ${item.manager_report || '--'}</div>
+                                <div style="white-space: pre-wrap;"><strong style="color: #0369a1;">Nhân sự báo cáo:</strong> ${item.employee_report || '--'}</div>
+                            </div>
+                        </div>
+                    </div>��:</strong> ${item.employee_commitment || '--'}</div>
                             </div>
                         </div>
 
@@ -704,27 +711,27 @@
 
                                 <div>
                                     <label style="display: block; font-size: 12px; font-weight: 700; color: #dc2626; margin-bottom: 6px;">⚠️ Cải Thiện / Lỗi <span style="color: #dc2626;">*</span></label>
-                                    <input id="formImprovementErrors" type="text" value="${item ? (item.improvement_errors || '') : ''}" placeholder="VD: Hay đi muộn, ẩu kích thước..." style="width: 100%; padding: 9px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; box-sizing: border-box;" oninput="window._eeCheckSectionLocks()">
+                                    <textarea id="formImprovementErrors" rows="2" placeholder="VD: Hay đi muộn, ẩu kích thước..." style="width: 100%; padding: 9px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; box-sizing: border-box; resize: vertical;" oninput="window._eeCheckSectionLocks()">${item ? (item.improvement_errors || '') : ''}</textarea>
                                 </div>
 
                                 <div style="grid-column: span 2;">
                                     <label style="display: block; font-size: 12px; font-weight: 700; color: #1e3a8a; margin-bottom: 6px;">📊 Đánh Giá Năng Lực NV Của Quản Lý</label>
-                                    <textarea id="formManagerEval" rows="2" placeholder="Nội dung đánh giá từ quản lý..." style="width: 100%; padding: 9px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; box-sizing: border-box;" oninput="window._eeCheckSectionLocks()">${item ? (item.manager_evaluation || '') : ''}</textarea>
+                                    <textarea id="formManagerEval" rows="2" placeholder="Nội dung đánh giá từ quản lý..." style="width: 100%; padding: 9px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; box-sizing: border-box; resize: vertical;" oninput="window._eeCheckSectionLocks()">${item ? (item.manager_evaluation || '') : ''}</textarea>
                                 </div>
 
                                 <div>
                                     <label style="display: block; font-size: 12px; font-weight: 700; color: #2563eb; margin-bottom: 6px;">🛠️ Nội Dung Khắc Phục (Hành động)</label>
-                                    <input id="formRemediation" type="text" value="${item ? (item.remediation_action || '') : ''}" placeholder="Công việc cần làm để sửa..." style="width: 100%; padding: 9px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; box-sizing: border-box;">
+                                    <textarea id="formRemediation" rows="2" placeholder="Công việc cần làm để sửa..." style="width: 100%; padding: 9px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; box-sizing: border-box; resize: vertical;">${item ? (item.remediation_action || '') : ''}</textarea>
                                 </div>
 
                                 <div>
                                     <label style="display: block; font-size: 12px; font-weight: 700; color: #7c3aed; margin-bottom: 6px;">🎓 Hướng Đào Tạo</label>
-                                    <input id="formTraining" type="text" value="${item ? (item.training_direction || '') : ''}" placeholder="Cần đào tạo thêm gì..." style="width: 100%; padding: 9px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; box-sizing: border-box;">
+                                    <textarea id="formTraining" rows="2" placeholder="Cần đào tạo thêm gì..." style="width: 100%; padding: 9px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; box-sizing: border-box; resize: vertical;">${item ? (item.training_direction || '') : ''}</textarea>
                                 </div>
 
                                 <div style="grid-column: span 2;">
                                     <label style="display: block; font-size: 12px; font-weight: 700; color: #059669; margin-bottom: 6px;">🤝 Cam Kết Của Quản Lý</label>
-                                    <input id="formManagerCommit" type="text" value="${item ? (item.manager_commitment || '') : ''}" placeholder="Hỗ trợ của quản lý..." style="width: 100%; padding: 9px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; box-sizing: border-box;">
+                                    <textarea id="formManagerCommit" rows="2" placeholder="Hỗ trợ của quản lý..." style="width: 100%; padding: 9px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; box-sizing: border-box; resize: vertical;">${item ? (item.manager_commitment || '') : ''}</textarea>
                                 </div>
                             </div>
                         </div>
@@ -741,7 +748,7 @@
                             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
                                 <div>
                                     <label style="display: block; font-size: 11px; font-weight: 700; color: #be185d; margin-bottom: 4px;">Ý Kiến Nhân Sự</label>
-                                    <input id="formEmpOpinion" type="text" value="${item ? (item.employee_opinion || '') : ''}" placeholder="Ý kiến phản hồi..." style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #f472b6; font-size: 12px; box-sizing: border-box;" oninput="window._eeCheckSectionLocks()">
+                                    <textarea id="formEmpOpinion" rows="2" placeholder="Ý kiến phản hồi..." style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #f472b6; font-size: 12px; box-sizing: border-box; resize: vertical;" oninput="window._eeCheckSectionLocks()">${item ? (item.employee_opinion || '') : ''}</textarea>
                                 </div>
                                 <div>
                                     <label style="display: block; font-size: 11px; font-weight: 700; color: #be185d; margin-bottom: 4px;">Time Xử Lý (Hạn khắc phục)</label>
@@ -749,7 +756,7 @@
                                 </div>
                                 <div>
                                     <label style="display: block; font-size: 11px; font-weight: 700; color: #be185d; margin-bottom: 4px;">Cam Kết Của Nhân Sự</label>
-                                    <input id="formEmpCommitment" type="text" value="${item ? (item.employee_commitment || '') : ''}" placeholder="Cam kết thực hiện..." style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #f472b6; font-size: 12px; box-sizing: border-box;" oninput="window._eeCheckSectionLocks()">
+                                    <textarea id="formEmpCommitment" rows="2" placeholder="Cam kết thực hiện..." style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #f472b6; font-size: 12px; box-sizing: border-box; resize: vertical;" oninput="window._eeCheckSectionLocks()">${item ? (item.employee_commitment || '') : ''}</textarea>
                                 </div>
                             </div>
                         </div>
@@ -766,11 +773,11 @@
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                                 <div>
                                     <label style="display: block; font-size: 11px; font-weight: 700; color: #0369a1; margin-bottom: 4px;">Quản Lý Báo Cáo (Xử lý thế nào?)</label>
-                                    <input id="formManagerReport" type="text" value="${item ? (item.manager_report || '') : ''}" placeholder="Cập nhật từ quản lý..." style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #38bdf8; font-size: 12px; box-sizing: border-box;">
+                                    <textarea id="formManagerReport" rows="2" placeholder="Cập nhật từ quản lý..." style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #38bdf8; font-size: 12px; box-sizing: border-box; resize: vertical;">${item ? (item.manager_report || '') : ''}</textarea>
                                 </div>
                                 <div>
                                     <label style="display: block; font-size: 11px; font-weight: 700; color: #0369a1; margin-bottom: 4px;">Nhân Sự Báo Cáo</label>
-                                    <input id="formEmpReport" type="text" value="${item ? (item.employee_report || '') : ''}" placeholder="Báo cáo kết quả từ nhân sự..." style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #38bdf8; font-size: 12px; box-sizing: border-box;">
+                                    <textarea id="formEmpReport" rows="2" placeholder="Báo cáo kết quả từ nhân sự..." style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #38bdf8; font-size: 12px; box-sizing: border-box; resize: vertical;">${item ? (item.employee_report || '') : ''}</textarea>
                                 </div>
                             </div>
                         </div>
