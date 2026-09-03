@@ -3,6 +3,9 @@
 const PERM_FEATURES = [
     // ===== TỔNG QUAN =====
     { key: 'quy_trinh_cuoc_hop', label: 'Quy Trình Cuộc Họp', perms: ['view','create','edit','delete'], section: 'CUỘC HỌP CÔNG TY' },
+    { key: 'tao_phieu_xu_ly_cv', label: 'Tạo Phiếu Xử Lý CV', perms: ['view','create','edit','delete'], section: 'CUỘC HỌP CÔNG TY' },
+    { key: 'don_loi_khach_hang', label: 'Đơn Lỗi Khách & Nội Bộ', perms: ['view','create','edit','delete'], section: 'CUỘC HỌP CÔNG TY' },
+    { key: 'don_loi_noi_bo', label: 'Lỗi Thường Gặp & Xử Lý', perms: ['view','create','edit','delete'], section: 'CUỘC HỌP CÔNG TY' },
     { key: 'tong_quan', label: 'Các Chỉ Số Tổng Quan', perms: ['view'], section: 'TỔNG QUAN' },
     { key: 'top_khach_hang', label: 'Top Khách & Sale KD', perms: ['view'], section: 'TỔNG QUAN' },
     { key: 'dashboard_kdoanh', label: 'Dashboard P.Kinh Doanh', perms: ['view'], section: 'TỔNG QUAN' },
@@ -160,9 +163,6 @@ const PERM_FEATURES = [
     { key: 'ke_toan_gui_hang', label: 'Đơn Hàng Kế Toán Gửi', perms: ['view','create','edit'], section: 'VĂN PHÒNG QUẢN LÝ' },
     { key: 'don_hang_chua_thu_tien', label: 'Đơn Hàng Chưa Thu Tiền', perms: ['view'], section: 'VĂN PHÒNG QUẢN LÝ' },
     { key: 'don_hang_thiet_ke', label: 'Đơn Hàng Thiết Kế', perms: ['view','create','edit','delete'], section: 'VĂN PHÒNG QUẢN LÝ' },
-    { key: 'tao_phieu_xu_ly_cv', label: 'Tạo Phiếu Xử Lý CV', perms: ['view','create','edit','delete'], section: 'VĂN PHÒNG QUẢN LÝ' },
-    { key: 'don_loi_khach_hang', label: 'Đơn Lỗi Khách & Nội Bộ', perms: ['view','create','edit','delete'], section: 'VĂN PHÒNG QUẢN LÝ' },
-    { key: 'don_loi_noi_bo', label: 'Lỗi Thường Gặp \u0026 Xử Lý', perms: ['view','create','edit','delete'], section: 'VĂN PHÒNG QUẢN LÝ' },
 
     // ===== BỘ PHẬN THIẾT KẾ =====
     { key: 'cham_mau_thiet_ke', label: 'Maket & Chấm Màu Thiết Kế', perms: ['view','create','edit','delete'], section: 'VĂN PHÒNG QUẢN LÝ' },

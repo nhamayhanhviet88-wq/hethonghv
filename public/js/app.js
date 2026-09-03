@@ -114,6 +114,9 @@ const CRM_LABELS = {
 
 const MENU_CONFIG = [
     { id: 'quytrinhcuochop', label: 'Quy Trình Cuộc Họp', icon: '🏛️', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'CUỘC HỌP CÔNG TY', href: '/quytrinhcuochop', permKey: 'quy_trinh_cuoc_hop' },
+    { id: 'tao-phieu-xu-ly-cv', label: 'Tạo Phiếu Xử Lý CV', icon: '📋', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'CUỘC HỌP CÔNG TY', href: '/taophieuxulycv', permKey: 'tao_phieu_xu_ly_cv' },
+    { id: 'don-loi-khach-hang', label: 'Đơn Lỗi Khách & Nội Bộ', icon: '⚠️', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'CUỘC HỌP CÔNG TY', href: '/donloikhachhang', permKey: 'don_loi_khach_hang' },
+    { id: 'loi-thuong-gap', label: 'Lỗi Thường Gặp & Xử Lý', icon: '📋', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'CUỘC HỌP CÔNG TY', href: '/loithuonggap', permKey: 'don_loi_noi_bo' },
     { id: 'dashboard', label: 'Các Chỉ Số Tổng Quan', icon: '📊', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'TỔNG QUAN', permKey: 'tong_quan' },
     { id: 'muc-tieu-nam', label: 'Mục Tiêu Năm', icon: '🎯', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'TỔNG QUAN', href: '/muctieunam', mobileHref: '/m/muctieunam', permKey: 'muc_tieu_nam' },
     { id: 'topkhachhang', label: 'Top Khách & Sale KD', icon: '👑', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'TỔNG QUAN', href: '/topkhachhang', permKey: 'top_khach_hang' },
@@ -226,9 +229,6 @@ const MENU_CONFIG = [
     { id: 'so-co-phan-may', label: 'Sổ Cổ Phần May', icon: '🧵', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'VĂN PHÒNG QUẢN LÝ', href: '/socophanmay', permKey: 'so_co_phan_may' },
     { id: 'ke-toan-gui-hang', label: 'Đơn Hàng Kế Toán Gửi', icon: '📋', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'VĂN PHÒNG QUẢN LÝ', href: '/ketoanguihang', permKey: 'ke_toan_gui_hang' },
     { id: 'don-hang-chua-thu-tien', label: 'Đơn Hàng Chưa Thu Tiền', icon: '💰', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'VĂN PHÒNG QUẢN LÝ', href: '/donhangchuathutien', permKey: 'don_hang_chua_thu_tien' },
-    { id: 'tao-phieu-xu-ly-cv', label: 'Tạo Phiếu Xử Lý CV', icon: '📋', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'VĂN PHÒNG QUẢN LÝ', href: '/taophieuxulycv', permKey: 'tao_phieu_xu_ly_cv' },
-    { id: 'don-loi-khach-hang', label: 'Đơn Lỗi Khách & Nội Bộ', icon: '⚠️', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'VĂN PHÒNG QUẢN LÝ', href: '/donloikhachhang', permKey: 'don_loi_khach_hang' },
-    { id: 'loi-thuong-gap', label: 'Lỗi Thường Gặp \u0026 Xử Lý', icon: '📋', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'VĂN PHÒNG QUẢN LÝ', href: '/loithuonggap', permKey: 'don_loi_noi_bo' },
 
     // ========== BỘ PHẬN THIẾT KẾ ==========
     { id: 'don-hang-thiet-ke', label: 'Đơn Hàng Thiết Kế', icon: '🎨', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'BỘ PHẬN THIẾT KẾ', href: '/donhangthietke', permKey: 'don_hang_thiet_ke' },
