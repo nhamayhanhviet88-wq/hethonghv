@@ -689,9 +689,45 @@
         container.innerHTML = html;
     }
 
+    // Helper function to group items by text content
+    function _eeGroupItemsByContent(itemList, empName, dept) {
+        var groupMap = {};
+        itemList.forEach(function(item) {
+            var rawText = (item.improvement_errors || '').trim();
+            var key = rawText.toLowerCase();
+            if (!groupMap[key]) {
+                groupMap[key] = {
+                    key: key,
+                    text: rawText,
+                    eval_type: item.eval_type,
+                    empName: empName,
+                    dept: dept,
+                    records: []
+                };
+            }
+            groupMap[key].records.push(item);
+        });
+
+        var groups = Object.values(groupMap);
+        groups.forEach(function(g, idx) {
+            g.records.sort(function(a, b) {
+                return b.id - a.id;
+            });
+            g.latestRecord = g.records[0];
+            g.count = g.records.length;
+            
+            var groupId = 'grp_' + encodeURIComponent(empName).replace(/%/g, '') + '_' + (g.eval_type === 'Lỗi Vi Phạm' ? 'err' : 'imp') + '_' + idx;
+            g.groupId = groupId;
+            _eeState.groupedMap[groupId] = g;
+        });
+
+        return groups;
+    }
+
     // 📊 VIEW MODE 3: DIRECT MAIN PAGE EMPLOYEE ANALYTICAL BREAKDOWN SECTION (OPTION 2)
     function _eeRenderEmployeeAnalysisView(container) {
         var items = _eeState.items || [];
+        _eeState.groupedMap = {}; // Reset groupedMap cache
 
         // Group items by Employee Name
         var empMap = {};
@@ -716,6 +752,12 @@
 
         var empList = Object.values(empMap);
 
+        // Pre-compute grouped errors and improvements for each employee
+        empList.forEach(function(emp) {
+            emp.groupedErrors = _eeGroupItemsByContent(emp.errors, emp.name, emp.dept);
+            emp.groupedImprovements = _eeGroupItemsByContent(emp.improvements, emp.name, emp.dept);
+        });
+
         var html = `
             <div style="background: white; border-radius: 12px; border: 1px solid #cbd5e1; box-shadow: 0 4px 20px rgba(0,0,0,0.04); overflow: hidden; padding: 16px 20px;">
                 <!-- Header -->
@@ -725,7 +767,7 @@
                             <span>📊</span> BẢNG MA TRẬN PHÂN TÍCH NHÂN SỰ — SIÊU GỌN GÀNG DÀNH CHO QUẢN LÝ
                         </h2>
                         <p style="margin: 2px 0 0 0; font-size: 11.5px; color: #64748b;">
-                            Nén gọn 10 lần cho hàng trăm nhân sự • Click vào từng dòng nội dung để xem chi tiết đầy đủ
+                            Gom nhóm lỗi lặp lại • Click vào từng dòng để xem lịch sử bị lỗi và hồ sơ chi tiết
                         </p>
                     </div>
                     <div style="display: flex; align-items: center; gap: 8px;">
@@ -781,33 +823,49 @@
                             </div>
                         </td>
 
-                        <!-- Col 2: Violations list -->
+                        <!-- Col 2: Grouped Violations list -->
                         <td style="padding: 8px 10px; vertical-align: top; border-right: 1.5px solid #cbd5e1; background: #fff1f2;">
-                            ${emp.errors.length === 0 ? '<div style="font-size: 11.5px; color: #9f1239; font-style: italic; padding: 4px 0;">Không có lỗi vi phạm</div>' : ''}
-                            ${emp.errors.map(function(errItem) {
+                            ${emp.groupedErrors.length === 0 ? '<div style="font-size: 11.5px; color: #9f1239; font-style: italic; padding: 4px 0;">Không có lỗi vi phạm</div>' : ''}
+                            ${emp.groupedErrors.map(function(grp) {
+                                var occBadge = `<span style="background: #dc2626; color: white; padding: 1px 6px; border-radius: 4px; font-weight: 900; font-size: 10.5px; margin-right: 6px; display: inline-block; white-space: nowrap;">Lần ${grp.count}</span>`;
+                                var countBadge = (grp.count > 1) 
+                                    ? `<span style="font-size: 10px; font-weight: 800; color: #be123c; background: #ffe4e6; padding: 1px 6px; border-radius: 8px; border: 1px solid #fecdd3; margin-left: 6px;">Lặp lại ${grp.count} lần</span>` 
+                                    : '';
                                 return `
-                                    <div onclick="window._eeOpenDetailModal(${errItem.id});" title="Click để xem chi tiết đầy đủ" style="padding: 5px 9px; margin-bottom: 5px; background: white; border-radius: 6px; border-left: 3.5px solid #e11d48; border-top: 1px solid #fecdd3; border-right: 1px solid #fecdd3; border-bottom: 1px solid #fecdd3; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 8px; transition: all 0.15s; box-shadow: 0 1px 3px rgba(0,0,0,0.03);" onmouseover="this.style.background='#ffe4e6'; this.style.transform='translateX(2px)';" onmouseout="this.style.background='white'; this.style.transform='translateX(0)';">
-                                        <div style="font-size: 12px; font-weight: 800; color: #991b1b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;">
-                                            <span style="background: #be123c; color: white; padding: 1px 6px; border-radius: 4px; font-weight: 900; font-size: 10.5px; margin-right: 6px; display: inline-block;">👤 ${emp.name}</span>
-                                            ⚠️ <span style="font-size: 10.5px; color: #64748b; font-weight: 600;">[${_formatShortKy(errItem.month_year)}]</span> ${errItem.improvement_errors || 'Lỗi vi phạm'}
+                                    <div onclick="window._eeOpenViolationHistoryModal('${grp.groupId}');" title="Click để xem lịch sử bị lỗi (${grp.count} lần)" style="padding: 6px 10px; margin-bottom: 6px; background: white; border-radius: 8px; border-left: 4px solid #e11d48; border-top: 1px solid #fecdd3; border-right: 1px solid #fecdd3; border-bottom: 1px solid #fecdd3; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 8px; transition: all 0.15s; box-shadow: 0 1.5px 4px rgba(225,29,72,0.06);" onmouseover="this.style.background='#ffe4e6'; this.style.transform='translateX(3px)';" onmouseout="this.style.background='white'; this.style.transform='translateX(0)';">
+                                        <div style="font-size: 12px; font-weight: 800; color: #991b1b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; display: flex; align-items: center;">
+                                            ${occBadge}
+                                            <span style="color: #991b1b; font-weight: 800;">${grp.text}</span>
+                                            ${countBadge}
                                         </div>
-                                        <span style="font-size: 10px; font-weight: 800; color: #be123c; flex-shrink: 0; background: #fff1f2; padding: 2px 6px; border-radius: 4px; border: 1px solid #fecdd3;">Hạn: ${_formatShortDate(errItem.resolution_deadline)}</span>
+                                        <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+                                            <span style="font-size: 10px; font-weight: 800; color: #be123c; background: #fff1f2; padding: 2px 6px; border-radius: 4px; border: 1px solid #fecdd3;">Hạn: ${_formatShortDate(grp.latestRecord.resolution_deadline)}</span>
+                                            <span style="font-size: 11px; color: #e11d48; font-weight: 900;">📋 Lịch sử (${grp.count}) ➔</span>
+                                        </div>
                                     </div>
                                 `;
                             }).join('')}
                         </td>
 
-                        <!-- Col 3: Improvements list -->
+                        <!-- Col 3: Grouped Improvements list -->
                         <td style="padding: 8px 10px; vertical-align: top; background: #fffbeb;">
-                            ${emp.improvements.length === 0 ? '<div style="font-size: 11.5px; color: #92400e; font-style: italic; padding: 4px 0;">Không có nội dung cần cải thiện</div>' : ''}
-                            ${emp.improvements.map(function(impItem) {
+                            ${emp.groupedImprovements.length === 0 ? '<div style="font-size: 11.5px; color: #92400e; font-style: italic; padding: 4px 0;">Không có nội dung cần cải thiện</div>' : ''}
+                            ${emp.groupedImprovements.map(function(grp) {
+                                var occBadge = `<span style="background: #d97706; color: white; padding: 1px 6px; border-radius: 4px; font-weight: 900; font-size: 10.5px; margin-right: 6px; display: inline-block; white-space: nowrap;">Lần ${grp.count}</span>`;
+                                var countBadge = (grp.count > 1) 
+                                    ? `<span style="font-size: 10px; font-weight: 800; color: #92400e; background: #fef3c7; padding: 1px 6px; border-radius: 8px; border: 1px solid #fde68a; margin-left: 6px;">Lặp lại ${grp.count} lần</span>` 
+                                    : '';
                                 return `
-                                    <div onclick="window._eeOpenDetailModal(${impItem.id});" title="Click để xem chi tiết đầy đủ" style="padding: 5px 9px; margin-bottom: 5px; background: white; border-radius: 6px; border-left: 3.5px solid #d97706; border-top: 1px solid #fde68a; border-right: 1px solid #fde68a; border-bottom: 1px solid #fde68a; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 8px; transition: all 0.15s; box-shadow: 0 1px 3px rgba(0,0,0,0.03);" onmouseover="this.style.background='#fef3c7'; this.style.transform='translateX(2px)';" onmouseout="this.style.background='white'; this.style.transform='translateX(0)';">
-                                        <div style="font-size: 12px; font-weight: 800; color: #92400e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;">
-                                            <span style="background: #d97706; color: white; padding: 1px 6px; border-radius: 4px; font-weight: 900; font-size: 10.5px; margin-right: 6px; display: inline-block;">👤 ${emp.name}</span>
-                                            💡 <span style="font-size: 10.5px; color: #64748b; font-weight: 600;">[${_formatShortKy(impItem.month_year)}]</span> ${impItem.improvement_errors || 'Nội dung cải thiện'}
+                                    <div onclick="window._eeOpenViolationHistoryModal('${grp.groupId}');" title="Click để xem lịch sử cải thiện (${grp.count} lần)" style="padding: 6px 10px; margin-bottom: 6px; background: white; border-radius: 8px; border-left: 4px solid #d97706; border-top: 1px solid #fde68a; border-right: 1px solid #fde68a; border-bottom: 1px solid #fde68a; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 8px; transition: all 0.15s; box-shadow: 0 1.5px 4px rgba(217,119,6,0.06);" onmouseover="this.style.background='#fef3c7'; this.style.transform='translateX(3px)';" onmouseout="this.style.background='white'; this.style.transform='translateX(0)';">
+                                        <div style="font-size: 12px; font-weight: 800; color: #92400e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; display: flex; align-items: center;">
+                                            ${occBadge}
+                                            <span style="color: #92400e; font-weight: 800;">${grp.text}</span>
+                                            ${countBadge}
                                         </div>
-                                        <span style="font-size: 10px; font-weight: 800; color: #059669; flex-shrink: 0; background: #f0fdf4; padding: 2px 6px; border-radius: 4px; border: 1px solid #bbf7d0;">${impItem.status === 'completed' ? '🟢 Hoàn thành' : '🟡 Đang theo dõi'}</span>
+                                        <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+                                            <span style="font-size: 10px; font-weight: 800; color: #059669; background: #f0fdf4; padding: 2px 6px; border-radius: 4px; border: 1px solid #bbf7d0;">${grp.latestRecord.status === 'completed' ? '🟢 Hoàn thành' : '🟡 Đang theo dõi'}</span>
+                                            <span style="font-size: 11px; color: #d97706; font-weight: 900;">📋 Lịch sử (${grp.count}) ➔</span>
+                                        </div>
                                     </div>
                                 `;
                             }).join('')}
@@ -828,15 +886,125 @@
 
         container.innerHTML = html;
 
-        // Wire search input listener
-        var searchInput = container.querySelector('#eeEmpSearchInputDirect');
-        var tableBody = container.querySelector('#eeEmployeeTableBodyDirect');
-        if (searchInput && tableBody) {
-            searchInput.oninput = function() {
-                tableBody.innerHTML = renderTableRowsHtml(this.value);
-            };
+        // Bind filter search input
+        var searchInput = document.getElementById('eeEmpSearchInputDirect');
+        if (searchInput) {
+            searchInput.addEventListener('input', function(e) {
+                var tbody = document.getElementById('eeEmployeeTableBodyDirect');
+                if (tbody) {
+                    tbody.innerHTML = renderTableRowsHtml(e.target.value);
+                }
+            });
         }
     }
+
+    // Modal Step 1: Open Violation History Modal
+    window._eeOpenViolationHistoryModal = function(groupId) {
+        var group = (_eeState.groupedMap && _eeState.groupedMap[groupId]);
+        if (!group) return;
+
+        var existing = document.getElementById('eeViolationHistoryModal');
+        if (existing) existing.remove();
+
+        var isErr = group.eval_type === 'Lỗi Vi Phạm';
+        var themeColor = isErr ? '#dc2626' : '#d97706';
+        var themeBg = isErr ? '#fff1f2' : '#fffbeb';
+        var themeBorder = isErr ? '#fecdd3' : '#fde68a';
+        var icon = isErr ? '⚠️' : '💡';
+        var titleType = isErr ? 'LỊCH SỬ BỊ LỖI VI PHẠM' : 'LỊCH SỬ NỘI DUNG CẢI THIỆN';
+
+        var recordsHtml = '';
+        group.records.forEach(function(rec, idx) {
+            var occNumber = rec.occurrence_number || (group.count - idx);
+            recordsHtml += `
+                <div style="background: white; border: 1.5px solid ${themeBorder}; border-left: 5px solid ${themeColor}; border-radius: 10px; padding: 14px 16px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); transition: all 0.15s;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 10px; margin-bottom: 10px; border-bottom: 1px dashed #e2e8f0;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="background: ${themeColor}; color: white; padding: 3px 9px; border-radius: 6px; font-weight: 900; font-size: 11.5px;">
+                                Lần ${occNumber}
+                            </span>
+                            <span style="font-size: 12.5px; font-weight: 800; color: #1e293b;">
+                                📅 Kỳ đánh giá: <strong style="color: #1d4ed8;">${_formatShortKy(rec.month_year)}</strong>
+                            </span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 11px; font-weight: 700; color: #be123c; background: #fff1f2; padding: 2px 8px; border-radius: 6px; border: 1px solid #fecdd3;">
+                                ⏳ Hạn xử lý: ${_formatShortDate(rec.resolution_deadline)}
+                            </span>
+                            <button onclick="window._eeOpenDetailModal(${rec.id});" style="padding: 5px 12px; background: #1e3a8a; color: white; border: none; border-radius: 6px; font-weight: 800; font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 4px; box-shadow: 0 2px 4px rgba(30,58,138,0.2);" onmouseover="this.style.background='#2563eb'" onmouseout="this.style.background='#1e3a8a'">
+                                📂 Mở Hồ Sơ Đánh Giá (#${rec.id}) ➔
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Summary Grid inside History Modal -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 11.5px; line-height: 1.45;">
+                        <div style="background: #f8fafc; padding: 8px 10px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                            <strong style="color: #475569;">👨‍💼 Đánh giá quản lý:</strong>
+                            <div style="color: #0f172a; margin-top: 2px;">${rec.manager_evaluation || '--'}</div>
+                        </div>
+                        <div style="background: #f8fafc; padding: 8px 10px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                            <strong style="color: #2563eb;">🛠️ Nội dung khắc phục:</strong>
+                            <div style="color: #1e40af; margin-top: 2px;">${rec.remediation_action || '--'}</div>
+                        </div>
+                        <div style="background: #fdf2f8; padding: 8px 10px; border-radius: 6px; border: 1px solid #fbcfe8;">
+                            <strong style="color: #be185d;">💬 Ý kiến nhân sự:</strong>
+                            <div style="color: #831843; margin-top: 2px;">${rec.employee_opinion || '--'}</div>
+                        </div>
+                        <div style="background: #fdf2f8; padding: 8px 10px; border-radius: 6px; border: 1px solid #fbcfe8;">
+                            <strong style="color: #be185d;">✍️ Cam kết nhân sự:</strong>
+                            <div style="color: #831843; margin-top: 2px;">${rec.employee_commitment || '--'}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+
+        var modalHtml = `
+            <div id="eeViolationHistoryModal" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15,23,42,0.65); backdrop-filter: blur(4px); z-index: 99999; display: flex; align-items: center; justify-content: center; padding: 16px; animation: fadeIn 0.2s ease-out;">
+                <div style="background: white; border-radius: 16px; width: 100%; max-width: 760px; max-height: 88vh; display: flex; flex-direction: column; box-shadow: 0 20px 40px rgba(0,0,0,0.25); border: 1px solid #cbd5e1; overflow: hidden;">
+                    <!-- Modal Header -->
+                    <div style="background: linear-gradient(135deg, ${themeColor}, #991b1b); color: white; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div style="font-size: 11px; text-transform: uppercase; font-weight: 800; letter-spacing: 0.5px; opacity: 0.9;">
+                                ${icon} ${titleType}
+                            </div>
+                            <div style="font-size: 16px; font-weight: 900; margin-top: 2px; display: flex; align-items: center; gap: 8px;">
+                                <span>"${group.text}"</span>
+                            </div>
+                            <div style="font-size: 11.5px; opacity: 0.95; margin-top: 4px; display: flex; align-items: center; gap: 10px;">
+                                <span>👤 Nhân sự: <strong>${group.empName}</strong></span>
+                                <span>🏢 Bộ phận: <strong>${group.dept}</strong></span>
+                                <span style="background: rgba(255,255,255,0.25); padding: 1px 8px; border-radius: 10px; font-weight: 800;">Tổng số: ${group.count} lần</span>
+                            </div>
+                        </div>
+                        <button onclick="document.getElementById('eeViolationHistoryModal').remove();" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 32px; height: 32px; border-radius: 50%; font-size: 18px; font-weight: 900; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.35)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">
+                            ✕
+                        </button>
+                    </div>
+
+                    <!-- Modal Subheader instruction -->
+                    <div style="background: ${themeBg}; border-bottom: 1px solid ${themeBorder}; padding: 10px 20px; font-size: 11.5px; font-weight: 700; color: ${themeColor}; display: flex; align-items: center; gap: 6px;">
+                        <span>💡</span> Click vào nút <strong>"📂 Mở Hồ Sơ Đánh Giá"</strong> của bất kỳ lần bị lỗi nào bên dưới để xem toàn bộ hồ sơ chi tiết (Ảnh 3).
+                    </div>
+
+                    <!-- Modal Body (Scrollable) -->
+                    <div style="padding: 16px 20px; overflow-y: auto; flex: 1;">
+                        ${recordsHtml}
+                    </div>
+
+                    <!-- Modal Footer -->
+                    <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 12px 20px; display: flex; justify-content: flex-end;">
+                        <button onclick="document.getElementById('eeViolationHistoryModal').remove();" style="padding: 8px 20px; background: #64748b; color: white; border: none; border-radius: 8px; font-weight: 800; font-size: 12px; cursor: pointer;">
+                            Đóng Lịch Sử
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    };
 
         // 📋 VIEW MODE 1: COMPACT FIT TABLE WITH READABLE 12PX FONT
     function _eeRenderCompactTableView(container) {
