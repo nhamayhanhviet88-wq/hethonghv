@@ -35,7 +35,7 @@ async function employeeEvaluationsRoutes(fastify, options) {
     // GET /api/employee-evaluations — List evaluations with filters
     fastify.get('/api/employee-evaluations', async (request, reply) => {
         try {
-            const { month_year, department, status, search } = request.query || {};
+            const { month_year, department, status, stat_filter, search } = request.query || {};
             let sql = `SELECT * FROM employee_evaluations WHERE 1=1`;
             const params = [];
 
@@ -51,6 +51,16 @@ async function employeeEvaluationsRoutes(fastify, options) {
                 sql += ` AND status = ?`;
                 params.push(status);
             }
+
+            // Handle stat_filter from card clicks
+            if (stat_filter === 'pending_employee') {
+                sql += ` AND ((employee_opinion IS NULL OR employee_opinion = '') AND (employee_commitment IS NULL OR employee_commitment = ''))`;
+            } else if (stat_filter === 'pending_progress') {
+                sql += ` AND ((manager_report IS NULL OR manager_report = '') AND (employee_report IS NULL OR employee_report = ''))`;
+            } else if (stat_filter === 'completed_progress') {
+                sql += ` AND ((manager_report IS NOT NULL AND manager_report != '') OR (employee_report IS NOT NULL AND employee_report != ''))`;
+            }
+
             if (search && search.trim() !== '') {
                 const s = `%${search.trim()}%`;
                 sql += ` AND (employee_name LIKE ? OR department LIKE ? OR improvement_errors LIKE ? OR manager_evaluation LIKE ? OR remediation_action LIKE ?)`;

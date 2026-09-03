@@ -4,10 +4,11 @@
         monthYear: 'Tháng ' + (new Date().getMonth() + 1) + '/' + new Date().getFullYear(),
         department: 'all',
         status: 'all',
+        statFilter: 'all', // 'all' | 'pending_employee' | 'pending_progress' | 'completed_progress'
         search: '',
         viewMode: 'compact', // 'compact' | 'cards' | 'excel'
         items: [],
-        stats: { total: 0, pending: 0, in_progress: 0, completed: 0 },
+        stats: { total: 0, pending_employee: 0, pending_progress: 0, completed_progress: 0 },
         users: []
     };
 
@@ -40,7 +41,7 @@
                 </div>
 
                 <!-- KPI Summary Cards -->
-                <div id="eeStatsContainer" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 18px;">
+                <div id="eeStatsContainer" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 18px;">
                     <!-- Injected by JS -->
                 </div>
 
@@ -69,6 +70,12 @@
                                 <option value="all">Tất Cả Bộ Phận</option>
                                 ${DEPARTMENTS.map(d => `<option value="${d}">${d}</option>`).join('')}
                             </select>
+                        </div>
+                        
+                        <!-- Active Stat Filter Indicator -->
+                        <div id="eeActiveStatFilterTag" style="display: none; align-items: center; gap: 6px; background: #eff6ff; color: #1d4ed8; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; border: 1px solid #bfdbfe;">
+                            <span id="eeActiveStatFilterText">Đang lọc</span>
+                            <button onclick="window._eeSelectStatFilter('all')" style="border: none; background: transparent; color: #1d4ed8; font-weight: 900; cursor: pointer; font-size: 12px; line-height: 1;">✕</button>
                         </div>
                     </div>
 
@@ -118,6 +125,9 @@
             params.append('month_year', _eeState.monthYear);
             params.append('department', _eeState.department);
             params.append('status', _eeState.status);
+            if (_eeState.statFilter && _eeState.statFilter !== 'all') {
+                params.append('stat_filter', _eeState.statFilter);
+            }
             if (_eeState.search) params.append('search', _eeState.search);
 
             var res = await apiCall('/api/employee-evaluations?' + params.toString());
@@ -136,13 +146,41 @@
         }
     }
 
+    window._eeSelectStatFilter = function(filter) {
+        if (_eeState.statFilter === filter && filter !== 'all') {
+            _eeState.statFilter = 'all'; // Toggle back to all if clicked again
+        } else {
+            _eeState.statFilter = filter;
+        }
+        _eeLoadData();
+    };
+
     function _eeRenderStats() {
         var container = document.getElementById('eeStatsContainer');
         if (!container) return;
         var s = _eeState.stats || {};
+        var sf = _eeState.statFilter;
+
+        var activeTag = document.getElementById('eeActiveStatFilterTag');
+        var activeText = document.getElementById('eeActiveStatFilterText');
+        if (activeTag && activeText) {
+            if (sf === 'pending_employee') {
+                activeTag.style.display = 'inline-flex';
+                activeText.innerText = '🔍 Đang lọc: Chưa xử lý ý kiến & cam kết NS';
+            } else if (sf === 'pending_progress') {
+                activeTag.style.display = 'inline-flex';
+                activeText.innerText = '🔍 Đang lọc: Chưa hoàn thành báo cáo tiến độ';
+            } else if (sf === 'completed_progress') {
+                activeTag.style.display = 'inline-flex';
+                activeText.innerText = '🔍 Đang lọc: Đã hoàn thành báo cáo tiến độ';
+            } else {
+                activeTag.style.display = 'none';
+            }
+        }
 
         container.innerHTML = `
-            <div style="background: white; border-radius: 12px; padding: 14px 16px; border: 1px solid #e2e8f0; box-shadow: 0 2px 8px rgba(0,0,0,0.03); display: flex; align-items: center; gap: 12px;">
+            <!-- Card 1 -->
+            <div onclick="window._eeSelectStatFilter('all')" title="Click để xem tất cả phiếu đánh giá" style="background: white; border-radius: 12px; padding: 14px 16px; border: ${sf === 'all' ? '2px solid #1e3a8a' : '1px solid #e2e8f0'}; box-shadow: ${sf === 'all' ? '0 4px 14px rgba(30,58,138,0.15)' : '0 2px 8px rgba(0,0,0,0.03)'}; display: flex; align-items: center; gap: 12px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
                 <div style="width: 42px; height: 42px; border-radius: 10px; background: #e0f2fe; color: #0284c7; display: flex; align-items: center; justify-content: center; font-size: 20px; shrink: 0;">👨‍💼</div>
                 <div>
                     <div style="font-size: 11px; font-weight: 800; color: #1e3a8a; text-transform: uppercase; line-height: 1.25;">👨‍💼 TỔNG ĐÁNH GIÁ QUẢN LÝ</div>
@@ -150,7 +188,8 @@
                 </div>
             </div>
 
-            <div style="background: white; border-radius: 12px; padding: 14px 16px; border: 1px solid #fbcfe8; box-shadow: 0 2px 8px rgba(219,39,119,0.06); display: flex; align-items: center; gap: 12px;">
+            <!-- Card 2 -->
+            <div onclick="window._eeSelectStatFilter('pending_employee')" title="Click để xem các phiếu nhân sự chưa xử lý" style="background: ${sf === 'pending_employee' ? '#fff1f2' : 'white'}; border-radius: 12px; padding: 14px 16px; border: ${sf === 'pending_employee' ? '2px solid #be185d' : '1px solid #fbcfe8'}; box-shadow: ${sf === 'pending_employee' ? '0 4px 14px rgba(190,24,93,0.2)' : '0 2px 8px rgba(219,39,119,0.06)'}; display: flex; align-items: center; gap: 12px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
                 <div style="width: 42px; height: 42px; border-radius: 10px; background: #fdf2f8; color: #be185d; display: flex; align-items: center; justify-content: center; font-size: 20px; shrink: 0;">🔴</div>
                 <div>
                     <div style="font-size: 11px; font-weight: 800; color: #be185d; text-transform: uppercase; line-height: 1.25;">🔴 CHƯA XỬ LÝ<br><span style="font-size: 10px; color: #9d174d;">💬 Ý KIẾN & CAM KẾT NHÂN SỰ</span></div>
@@ -158,7 +197,8 @@
                 </div>
             </div>
 
-            <div style="background: white; border-radius: 12px; padding: 14px 16px; border: 1px solid #fef3c7; box-shadow: 0 2px 8px rgba(245,158,11,0.06); display: flex; align-items: center; gap: 12px;">
+            <!-- Card 3 -->
+            <div onclick="window._eeSelectStatFilter('pending_progress')" title="Click để xem các phiếu chưa hoàn thành tiến độ" style="background: ${sf === 'pending_progress' ? '#fffbeb' : 'white'}; border-radius: 12px; padding: 14px 16px; border: ${sf === 'pending_progress' ? '2px solid #d97706' : '1px solid #fef3c7'}; box-shadow: ${sf === 'pending_progress' ? '0 4px 14px rgba(217,119,6,0.2)' : '0 2px 8px rgba(245,158,11,0.06)'}; display: flex; align-items: center; gap: 12px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
                 <div style="width: 42px; height: 42px; border-radius: 10px; background: #fef3c7; color: #d97706; display: flex; align-items: center; justify-content: center; font-size: 20px; shrink: 0;">🟡</div>
                 <div>
                     <div style="font-size: 11px; font-weight: 800; color: #92400e; text-transform: uppercase; line-height: 1.25;">🟡 CHƯA HOÀN THÀNH<br><span style="font-size: 10px; color: #b45309;">📊 BÁO CÁO TIẾN ĐỘ</span></div>
@@ -166,7 +206,8 @@
                 </div>
             </div>
 
-            <div style="background: white; border-radius: 12px; padding: 14px 16px; border: 1px solid #d1fae5; box-shadow: 0 2px 8px rgba(16,185,129,0.06); display: flex; align-items: center; gap: 12px;">
+            <!-- Card 4 -->
+            <div onclick="window._eeSelectStatFilter('completed_progress')" title="Click để xem các phiếu đã hoàn thành tiến độ" style="background: ${sf === 'completed_progress' ? '#ecfdf5' : 'white'}; border-radius: 12px; padding: 14px 16px; border: ${sf === 'completed_progress' ? '2px solid #059669' : '1px solid #d1fae5'}; box-shadow: ${sf === 'completed_progress' ? '0 4px 14px rgba(5,150,105,0.2)' : '0 2px 8px rgba(16,185,129,0.06)'}; display: flex; align-items: center; gap: 12px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
                 <div style="width: 42px; height: 42px; border-radius: 10px; background: #d1fae5; color: #059669; display: flex; align-items: center; justify-content: center; font-size: 20px; shrink: 0;">🟢</div>
                 <div>
                     <div style="font-size: 11px; font-weight: 800; color: #065f46; text-transform: uppercase; line-height: 1.25;">🟢 HOÀN THÀNH<br><span style="font-size: 10px; color: #047857;">📊 BÁO CÁO TIẾN ĐỘ</span></div>
