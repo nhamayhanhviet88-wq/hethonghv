@@ -14,6 +14,17 @@
         users: []
     };
 
+    function _eeRemoveAccents(str) {
+        if (!str) return '';
+        return str
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/đ/g, 'd')
+            .replace(/Đ/g, 'D')
+            .trim();
+    }
+
     var DEPARTMENTS = ['Kinh Doanh', 'Sale', 'Marketing', 'Sản Xuất', 'Văn Phòng', 'Thiết Kế', 'May', 'Cắt', 'In', 'Ép', 'Hoàn Thiện', 'Kho', 'Khác'];
 
     function _getDeptBadgeHtml(deptName) {
@@ -220,7 +231,20 @@
             if (_eeState.search) params.append('search', _eeState.search);
 
             var res = await apiCall('/api/employee-evaluations?' + params.toString());
-            _eeState.items = (res && res.items) ? res.items : [];
+            var rawItems = (res && res.items) ? res.items : [];
+
+            if (_eeState.search && _eeState.search.trim()) {
+                var normS = _eeRemoveAccents(_eeState.search);
+                _eeState.items = rawItems.filter(function(item) {
+                    var normErr = _eeRemoveAccents(item.improvement_errors || '');
+                    if (!normS) return true;
+                    if (normErr.indexOf(normS) !== -1) return true;
+                    var words = normS.split(/\s+/).filter(Boolean);
+                    return words.length > 0 && words.every(function(w) { return normErr.indexOf(w) !== -1; });
+                });
+            } else {
+                _eeState.items = rawItems;
+            }
 
             var statsRes = await apiCall('/api/employee-evaluations/stats?year=' + encodeURIComponent(_eeState.filterYear) + '&month=' + encodeURIComponent(_eeState.filterMonth));
             if (statsRes && statsRes.stats) {

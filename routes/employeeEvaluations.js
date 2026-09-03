@@ -42,37 +42,37 @@ async function employeeEvaluationsRoutes(fastify, options) {
             let sql = `SELECT * FROM employee_evaluations WHERE 1=1`;
             const params = [];
 
-            if (year && year !== 'all' && month && month !== 'all') {
-                const shortY = year.slice(-2);
-                sql += ` AND (month_year = ? OR month_year LIKE ? OR month_year LIKE ? OR month_year LIKE ?)`;
-                params.push(`Tháng ${month}/${year}`, `%${month}/${year}`, `Tháng ${month}/${shortY}`, `%${month}/${shortY}`);
-            } else if (year && year !== 'all') {
-                const shortY = year.slice(-2);
-                sql += ` AND (month_year LIKE ? OR month_year LIKE ?)`;
-                params.push(`%/${year}`, `%/${shortY}`);
-            } else if (month && month !== 'all') {
-                sql += ` AND (month_year LIKE ? OR month_year LIKE ?)`;
-                params.push(`Tháng ${month}/%`, `%${month}/%`);
-            } else if (month_year && month_year !== 'all') {
-                sql += ` AND (month_year = ? OR month_year LIKE ?)`;
-                params.push(month_year, `%${month_year}%`);
-            }
-
-            if (department && department !== 'all') {
-                sql += ` AND department = ?`;
-                params.push(department);
-            }
-            if (employee_name && employee_name !== 'all') {
-                sql += ` AND employee_name = ?`;
-                params.push(employee_name);
-            }
-            if (status && status !== 'all') {
-                sql += ` AND status = ?`;
-                params.push(status);
-            }
-
-            // Handle stat_filter & eval_type from card clicks (only apply when search is empty)
+            // If NOT searching, apply dropdown & card filters.
+            // If searching, search across ALL database records without filter restrictions!
             if (!search || search.trim() === '') {
+                if (year && year !== 'all' && month && month !== 'all') {
+                    const shortY = year.slice(-2);
+                    sql += ` AND (month_year = ? OR month_year LIKE ? OR month_year LIKE ? OR month_year LIKE ?)`;
+                    params.push(`Tháng ${month}/${year}`, `%${month}/${year}`, `Tháng ${month}/${shortY}`, `%${month}/${shortY}`);
+                } else if (year && year !== 'all') {
+                    const shortY = year.slice(-2);
+                    sql += ` AND (month_year LIKE ? OR month_year LIKE ?)`;
+                    params.push(`%/${year}`, `%/${shortY}`);
+                } else if (month && month !== 'all') {
+                    sql += ` AND (month_year LIKE ? OR month_year LIKE ?)`;
+                    params.push(`Tháng ${month}/%`, `%${month}/%`);
+                } else if (month_year && month_year !== 'all') {
+                    sql += ` AND (month_year = ? OR month_year LIKE ?)`;
+                    params.push(month_year, `%${month_year}%`);
+                }
+
+                if (department && department !== 'all') {
+                    sql += ` AND department = ?`;
+                    params.push(department);
+                }
+                if (employee_name && employee_name !== 'all') {
+                    sql += ` AND employee_name = ?`;
+                    params.push(employee_name);
+                }
+                if (status && status !== 'all') {
+                    sql += ` AND status = ?`;
+                    params.push(status);
+                }
                 if (eval_type && eval_type !== 'all') {
                     sql += ` AND eval_type = ?`;
                     params.push(eval_type);
@@ -87,20 +87,39 @@ async function employeeEvaluationsRoutes(fastify, options) {
                 }
             }
 
-            if (search && search.trim() !== '') {
-                const s = `%${search.trim()}%`;
-                sql += ` AND improvement_errors ILIKE ?`;
-                params.push(s);
-            }
+
 
             sql += ` ORDER BY id DESC`;
-            const items = await db.all(sql, params);
+            let items = await db.all(sql, params);
+
+            if (search && search.trim() !== '') {
+                const normSearch = removeVietnameseAccents(search);
+                items = items.filter(item => {
+                    const normErr = removeVietnameseAccents(item.improvement_errors || '');
+                    if (!normSearch) return true;
+                    if (normErr.includes(normSearch)) return true;
+                    const words = normSearch.split(/\s+/).filter(Boolean);
+                    return words.length > 0 && words.every(w => normErr.includes(w));
+                });
+            }
+
             return reply.send({ success: true, items });
         } catch (err) {
             console.error('Error fetching employee_evaluations:', err);
             return reply.code(500).send({ error: err.message });
         }
     });
+
+function removeVietnameseAccents(str) {
+    if (!str) return '';
+    return str
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/đ/g, 'd')
+        .replace(/Đ/g, 'D')
+        .trim();
+}
 
     // GET /api/employee-evaluations/stats — Summary stats
     fastify.get('/api/employee-evaluations/stats', async (request, reply) => {
