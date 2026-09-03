@@ -38,7 +38,7 @@ async function employeeEvaluationsRoutes(fastify, options) {
     // GET /api/employee-evaluations — List evaluations with filters
     fastify.get('/api/employee-evaluations', async (request, reply) => {
         try {
-            const { month_year, year, month, department, employee_name, status, stat_filter, search } = request.query || {};
+            const { month_year, year, month, department, employee_name, status, stat_filter, eval_type, search } = request.query || {};
             let sql = `SELECT * FROM employee_evaluations WHERE 1=1`;
             const params = [];
 
@@ -69,6 +69,11 @@ async function employeeEvaluationsRoutes(fastify, options) {
             if (status && status !== 'all') {
                 sql += ` AND status = ?`;
                 params.push(status);
+            }
+
+            if (eval_type && eval_type !== 'all') {
+                sql += ` AND eval_type = ?`;
+                params.push(eval_type);
             }
 
             // Handle stat_filter from card clicks
@@ -130,6 +135,10 @@ async function employeeEvaluationsRoutes(fastify, options) {
                        (i.employee_report && i.employee_report.trim() !== '');
             };
 
+            // Count by classification
+            const total_errors = items.filter(i => i.eval_type === 'Lỗi Vi Phạm').length;
+            const total_improvements = items.filter(i => i.eval_type === 'Cần Cải Thiện').length;
+
             // 🔴 CHƯA XỬ LÝ 💬 Ý KIẾN & CAM KẾT NHÂN SỰ: Mục 1 đã xong nhưng Mục 2 chưa nhập
             const pending_employee = items.filter(i => !isSection2Done(i)).length;
             
@@ -141,7 +150,7 @@ async function employeeEvaluationsRoutes(fastify, options) {
 
             return reply.send({
                 success: true,
-                stats: { total, pending_employee, pending_progress, completed_progress }
+                stats: { total, total_errors, total_improvements, pending_employee, pending_progress, completed_progress }
             });
         } catch (err) {
             console.error('Error fetching employee_evaluations stats:', err);
