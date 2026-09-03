@@ -3,9 +3,9 @@
 const PERM_FEATURES = [
     // ===== TỔNG QUAN =====
     { key: 'quy_trinh_cuoc_hop', label: 'Quy Trình Cuộc Họp', perms: ['view','create','edit','delete'], section: 'CUỘC HỌP CÔNG TY' },
-    { key: 'tao_phieu_xu_ly_cv', label: 'Tạo Phiếu Xử Lý CV', perms: ['view','create','edit','delete'], section: 'CUỘC HỌP CÔNG TY' },
-    { key: 'don_loi_khach_hang', label: 'Đơn Lỗi Khách & Nội Bộ', perms: ['view','create','edit','delete'], section: 'CUỘC HỌP CÔNG TY' },
     { key: 'don_loi_noi_bo', label: 'Lỗi Thường Gặp & Xử Lý', perms: ['view','create','edit','delete'], section: 'CUỘC HỌP CÔNG TY' },
+    { key: 'don_loi_khach_hang', label: 'Đơn Lỗi Khách & Nội Bộ', perms: ['view','create','edit','delete'], section: 'CUỘC HỌP CÔNG TY' },
+    { key: 'tao_phieu_xu_ly_cv', label: 'Tạo Phiếu Xử Lý CV', perms: ['view','create','edit','delete'], section: 'CUỘC HỌP CÔNG TY' },
     { key: 'tong_quan', label: 'Các Chỉ Số Tổng Quan', perms: ['view'], section: 'TỔNG QUAN' },
     { key: 'top_khach_hang', label: 'Top Khách & Sale KD', perms: ['view'], section: 'TỔNG QUAN' },
     { key: 'dashboard_kdoanh', label: 'Dashboard P.Kinh Doanh', perms: ['view'], section: 'TỔNG QUAN' },

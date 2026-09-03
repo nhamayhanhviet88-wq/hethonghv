@@ -114,9 +114,9 @@ const CRM_LABELS = {
 
 const MENU_CONFIG = [
     { id: 'quytrinhcuochop', label: 'Quy Trình Cuộc Họp', icon: '🏛️', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'CUỘC HỌP CÔNG TY', href: '/quytrinhcuochop', permKey: 'quy_trinh_cuoc_hop' },
-    { id: 'tao-phieu-xu-ly-cv', label: 'Tạo Phiếu Xử Lý CV', icon: '📋', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'CUỘC HỌP CÔNG TY', href: '/taophieuxulycv', permKey: 'tao_phieu_xu_ly_cv' },
-    { id: 'don-loi-khach-hang', label: 'Đơn Lỗi Khách & Nội Bộ', icon: '⚠️', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'CUỘC HỌP CÔNG TY', href: '/donloikhachhang', permKey: 'don_loi_khach_hang' },
     { id: 'loi-thuong-gap', label: 'Lỗi Thường Gặp & Xử Lý', icon: '📋', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'CUỘC HỌP CÔNG TY', href: '/loithuonggap', permKey: 'don_loi_noi_bo' },
+    { id: 'don-loi-khach-hang', label: 'Đơn Lỗi Khách & Nội Bộ', icon: '⚠️', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'CUỘC HỌP CÔNG TY', href: '/donloikhachhang', permKey: 'don_loi_khach_hang' },
+    { id: 'tao-phieu-xu-ly-cv', label: 'Tạo Phiếu Xử Lý CV', icon: '📋', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'CUỘC HỌP CÔNG TY', href: '/taophieuxulycv', permKey: 'tao_phieu_xu_ly_cv' },
     { id: 'dashboard', label: 'Các Chỉ Số Tổng Quan', icon: '📊', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'TỔNG QUAN', permKey: 'tong_quan' },
     { id: 'muc-tieu-nam', label: 'Mục Tiêu Năm', icon: '🎯', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'TỔNG QUAN', href: '/muctieunam', mobileHref: '/m/muctieunam', permKey: 'muc_tieu_nam' },
     { id: 'topkhachhang', label: 'Top Khách & Sale KD', icon: '👑', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'TỔNG QUAN', href: '/topkhachhang', permKey: 'top_khach_hang' },
