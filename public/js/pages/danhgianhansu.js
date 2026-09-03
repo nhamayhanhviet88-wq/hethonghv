@@ -461,10 +461,10 @@
                     <thead>
                         <!-- Row 1: Category Groups -->
                         <tr style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.3px; font-weight: 900; color: white;">
-                            <th rowspan="2" style="padding: 10px 2px; background: #1e3a8a; width: 5%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.2);">Kỳ</th>
-                            <th rowspan="2" style="padding: 10px 2px; background: #1e3a8a; width: 2.8%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.2);">STT</th>
-                            <th rowspan="2" style="padding: 10px 4px; background: #1e3a8a; width: 8.5%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Tên Nhân Sự">Tên Nhân Sự</th>
-                            <th rowspan="2" style="padding: 10px 4px; background: #1e3a8a; width: 5.8%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Bộ Phận">Bộ Phận</th>
+                            <th rowspan="2" style="padding: 10px 2px; background: #1e3a8a; width: 4.5%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.2);">Kỳ</th>
+                            <th rowspan="2" style="padding: 10px 2px; background: #1e3a8a; width: 2.5%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.2);">STT</th>
+                            <th rowspan="2" style="padding: 10px 4px; background: #1e3a8a; width: 6.5%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Tên Nhân Sự">Tên Nhân Sự</th>
+                            <th rowspan="2" style="padding: 10px 4px; background: #1e3a8a; width: 5.0%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Bộ Phận">Bộ Phận</th>
                             
                             <!-- Group 1: Manager Eval (6 columns) -->
                             <th colspan="6" style="padding: 8px 6px; background: #1e3a8a; text-align: center; vertical-align: middle; border-bottom: 1px solid rgba(255,255,255,0.2); border-right: 1px solid rgba(255,255,255,0.2);">👨‍💼 ĐÁNH GIÁ TỪ QUẢN LÝ</th>
@@ -477,18 +477,18 @@
                         </tr>
                         <!-- Row 2: Sub-headers centered with Multiline Linebreaks -->
                         <tr style="font-size: 11px; text-transform: uppercase; font-weight: 800; color: white; text-align: center; vertical-align: middle;">
-                            <th style="padding: 8px 2px; background: #1d4ed8; width: 5.8%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Phân<br>Loại</th>
-                            <th style="padding: 8px 4px; background: #1d4ed8; width: 9%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Cải Thiện<br>/ Lỗi</th>
-                            <th style="padding: 8px 4px; background: #1d4ed8; width: 10.5%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Đánh Giá<br>Quản Lý</th>
-                            <th style="padding: 8px 4px; background: #1d4ed8; width: 9%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Nội Dung<br>Khắc Phục</th>
-                            <th style="padding: 8px 4px; background: #1d4ed8; width: 8.5%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Hướng<br>Đào Tạo</th>
-                            <th style="padding: 8px 4px; background: #1d4ed8; width: 8%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Quản Lý<br>Cam Kết</th>
+                            <th style="padding: 8px 2px; background: #1d4ed8; width: 5.2%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Phân<br>Loại</th>
+                            <th style="padding: 8px 4px; background: #1d4ed8; width: 15%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Cải Thiện<br>/ Lỗi</th>
+                            <th style="padding: 8px 4px; background: #1d4ed8; width: 9.5%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Đánh Giá<br>Quản Lý</th>
+                            <th style="padding: 8px 4px; background: #1d4ed8; width: 8.5%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Nội Dung<br>Khắc Phục</th>
+                            <th style="padding: 8px 4px; background: #1d4ed8; width: 7.5%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Hướng<br>Đào Tạo</th>
+                            <th style="padding: 8px 4px; background: #1d4ed8; width: 7.0%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Quản Lý<br>Cam Kết</th>
                             
-                            <th style="padding: 8px 4px; background: #db2777; width: 8%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Ý Kiến<br>Nhân Sự</th>
-                            <th style="padding: 8px 4px; background: #db2777; width: 5.8%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Hạn<br>Xử Lý</th>
-                            <th style="padding: 8px 4px; background: #db2777; width: 8%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Nhân Sự<br>Cam Kết</th>
+                            <th style="padding: 8px 4px; background: #db2777; width: 7.0%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Ý Kiến<br>Nhân Sự</th>
+                            <th style="padding: 8px 4px; background: #db2777; width: 5.0%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Hạn<br>Xử Lý</th>
+                            <th style="padding: 8px 4px; background: #db2777; width: 7.3%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Nhân Sự<br>Cam Kết</th>
                             
-                            <th style="padding: 8px 4px; background: #0284c7; width: 7.8%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Quản Lý<br>Báo Cáo</th>
+                            <th style="padding: 8px 4px; background: #0284c7; width: 7.0%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Quản Lý<br>Báo Cáo</th>
                             <th style="padding: 8px 4px; background: #0284c7; width: 7.5%; text-align: center; vertical-align: middle; line-height: 1.3;">Nhân Sự<br>Báo Cáo</th>
                         </tr>
                     </thead>
@@ -846,10 +846,10 @@
                     <thead>
                         <!-- Row 1: Category Groups -->
                         <tr style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.3px; font-weight: 900; color: white;">
-                            <th rowspan="2" style="padding: 10px 2px; background: #1e3a8a; width: 5%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.2);">Kỳ</th>
-                            <th rowspan="2" style="padding: 10px 2px; background: #1e3a8a; width: 2.8%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.2);">STT</th>
-                            <th rowspan="2" style="padding: 10px 4px; background: #1e3a8a; width: 8.5%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Tên Nhân Sự">Tên Nhân Sự</th>
-                            <th rowspan="2" style="padding: 10px 4px; background: #1e3a8a; width: 5.8%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Bộ Phận">Bộ Phận</th>
+                            <th rowspan="2" style="padding: 10px 2px; background: #1e3a8a; width: 4.5%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.2);">Kỳ</th>
+                            <th rowspan="2" style="padding: 10px 2px; background: #1e3a8a; width: 2.5%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.2);">STT</th>
+                            <th rowspan="2" style="padding: 10px 4px; background: #1e3a8a; width: 6.5%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Tên Nhân Sự">Tên Nhân Sự</th>
+                            <th rowspan="2" style="padding: 10px 4px; background: #1e3a8a; width: 5.0%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Bộ Phận">Bộ Phận</th>
                             
                             <!-- Group 1: Manager Eval (6 columns) -->
                             <th colspan="6" style="padding: 8px 6px; background: #1e3a8a; text-align: center; vertical-align: middle; border-bottom: 1px solid rgba(255,255,255,0.2); border-right: 1px solid rgba(255,255,255,0.2);">👨‍💼 ĐÁNH GIÁ TỪ QUẢN LÝ</th>
@@ -862,18 +862,18 @@
                         </tr>
                         <!-- Row 2: Sub-headers centered with Multiline Linebreaks -->
                         <tr style="font-size: 11px; text-transform: uppercase; font-weight: 800; color: white; text-align: center; vertical-align: middle;">
-                            <th style="padding: 8px 2px; background: #1d4ed8; width: 5.8%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Phân<br>Loại</th>
-                            <th style="padding: 8px 4px; background: #1d4ed8; width: 9%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Cải Thiện<br>/ Lỗi</th>
-                            <th style="padding: 8px 4px; background: #1d4ed8; width: 10.5%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Đánh Giá<br>Quản Lý</th>
-                            <th style="padding: 8px 4px; background: #1d4ed8; width: 9%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Nội Dung<br>Khắc Phục</th>
-                            <th style="padding: 8px 4px; background: #1d4ed8; width: 8.5%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Hướng<br>Đào Tạo</th>
-                            <th style="padding: 8px 4px; background: #1d4ed8; width: 8%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Quản Lý<br>Cam Kết</th>
+                            <th style="padding: 8px 2px; background: #1d4ed8; width: 5.2%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Phân<br>Loại</th>
+                            <th style="padding: 8px 4px; background: #1d4ed8; width: 15%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Cải Thiện<br>/ Lỗi</th>
+                            <th style="padding: 8px 4px; background: #1d4ed8; width: 9.5%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Đánh Giá<br>Quản Lý</th>
+                            <th style="padding: 8px 4px; background: #1d4ed8; width: 8.5%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Nội Dung<br>Khắc Phục</th>
+                            <th style="padding: 8px 4px; background: #1d4ed8; width: 7.5%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Hướng<br>Đào Tạo</th>
+                            <th style="padding: 8px 4px; background: #1d4ed8; width: 7.0%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Quản Lý<br>Cam Kết</th>
                             
-                            <th style="padding: 8px 4px; background: #db2777; width: 8%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Ý Kiến<br>Nhân Sự</th>
-                            <th style="padding: 8px 4px; background: #db2777; width: 5.8%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Hạn<br>Xử Lý</th>
-                            <th style="padding: 8px 4px; background: #db2777; width: 8%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Nhân Sự<br>Cam Kết</th>
+                            <th style="padding: 8px 4px; background: #db2777; width: 7.0%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Ý Kiến<br>Nhân Sự</th>
+                            <th style="padding: 8px 4px; background: #db2777; width: 5.0%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Hạn<br>Xử Lý</th>
+                            <th style="padding: 8px 4px; background: #db2777; width: 7.3%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Nhân Sự<br>Cam Kết</th>
                             
-                            <th style="padding: 8px 4px; background: #0284c7; width: 7.8%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Quản Lý<br>Báo Cáo</th>
+                            <th style="padding: 8px 4px; background: #0284c7; width: 7.0%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Quản Lý<br>Báo Cáo</th>
                             <th style="padding: 8px 4px; background: #0284c7; width: 7.5%; text-align: center; vertical-align: middle; line-height: 1.3;">Nhân Sự<br>Báo Cáo</th>
                         </tr>
                     </thead>
@@ -944,12 +944,25 @@
     
     function _formatShortDate(dateStr) {
         if (!dateStr || dateStr === '--') return '--';
+        var d;
         if (dateStr.includes('-')) {
             var parts = dateStr.split('-');
             if (parts.length === 3) {
-                var yy = parts[0].slice(-2);
-                return `${parts[2]}/${parts[1]}/${yy}`;
+                d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
             }
+        } else if (dateStr.includes('/')) {
+            var p = dateStr.split('/');
+            if (p.length === 3) {
+                var y = p[2].length === 2 ? '20' + p[2] : p[2];
+                d = new Date(parseInt(y, 10), parseInt(p[1], 10) - 1, parseInt(p[0], 10));
+            }
+        }
+        if (d && !isNaN(d.getTime())) {
+            var days = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+            var dow = days[d.getDay()];
+            var dd = String(d.getDate()).padStart(2, '0');
+            var mm = String(d.getMonth() + 1).padStart(2, '0');
+            return `${dow} ${dd}/${mm}`;
         }
         return dateStr.replace('/2026', '/26').replace('/2025', '/25').replace('/2024', '/24');
     }
