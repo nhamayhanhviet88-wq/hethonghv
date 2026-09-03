@@ -636,10 +636,10 @@
                                 <div style="color: #9f1239; background: #fff1f2; padding: 10px 14px; border-radius: 10px; border: 1px solid #fecdd3; border-left: 5px solid #e11d48; margin-top: 4px; font-weight: 700; white-space: pre-wrap; font-size: 13.5px; line-height: 1.45; box-shadow: 0 2px 8px rgba(225,29,72,0.06);">${item.improvement_errors || '--'}</div>
                             </div>
 
-                            <!-- Position 2: Đánh giá năng lực -->
-                            <div style="margin-top: 2px;">
-                                <span style="color: #64748b; font-size: 11.5px; font-weight: 700;">📊 Đánh giá năng lực:</span>
-                                <div style="color: #1e293b; font-weight: 600; margin-top: 2px; white-space: pre-wrap; font-size: 12px;">${item.manager_evaluation || '--'}</div>
+                            <!-- Position 2: FRAMED CARD - ĐÁNH GIÁ NĂNG LỰC -->
+                            <div>
+                                <span style="color: #475569; font-size: 11.5px; font-weight: 700;">📊 Đánh giá năng lực:</span>
+                                <div style="color: #0f172a; background: white; border: 1px solid #cbd5e1; padding: 8px 12px; border-radius: 6px; margin-top: 3px; font-weight: 600; white-space: pre-wrap; font-size: 12px; line-height: 1.4;">${item.manager_evaluation || '--'}</div>
                             </div>
 
                             <!-- Position 3: 2 Cột song song: Khắc phục & Đào tạo -->
