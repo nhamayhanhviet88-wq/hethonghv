@@ -889,30 +889,32 @@
                             <h3 style="font-size: 14px; font-weight: 800; color: #be185d; margin: 0; display: flex; align-items: center; gap: 6px;">
                                 <span>💬</span> 2. Ý KIẾN & CAM KẾT TỪ NHÂN SỰ
                             </h3>
-                            <div style="display: flex; align-items: center; gap: 10px;">
-                                ${(shortDeadline && shortDeadline !== '--') ? `<span style="background: #fce7f3; color: #9d174d; padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 11.5px;">📅 Hạn xử lý: ${shortDeadline}</span>` : ''}
-                                <button onclick="document.getElementById('eeDetailModal').remove(); window._eeOpenFormModal(${item.id}, 2);" style="padding: 6px 14px; background: linear-gradient(135deg, #db2777, #be185d); color: white; border: none; border-radius: 8px; font-weight: 800; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 8px rgba(219,39,119,0.3); transition: transform 0.1s;" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
-                                    ✍️ Cập Nhật Ý Kiến & Cam Kết (Mục 2)
-                                </button>
-                            </div>
+                            ${(shortDeadline && shortDeadline !== '--') ? `<span style="background: #fce7f3; color: #9d174d; padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 11.5px;">📅 Hạn xử lý: ${shortDeadline}</span>` : ''}
                         </div>
 
                         ${!hasSec2Data ? `
                             <div style="padding: 14px 18px; background: #fffbebf5; border: 1px dashed #fcd34d; border-radius: 10px; color: #b45309; font-size: 12.5px; font-weight: 600; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
                                 <span style="display: flex; align-items: center; gap: 8px;"><span>⌛</span> Đang chờ Nhân sự phản hồi ý kiến & cam kết khắc phục.</span>
-                                <button onclick="document.getElementById('eeDetailModal').remove(); window._eeOpenFormModal(${item.id}, 2);" style="padding: 6px 14px; background: #db2777; color: white; border: none; border-radius: 6px; font-weight: 800; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
-                                    ✍️ Nhập Ý Kiến & Cam Kết Ngay
-                                </button>
+                                <span onclick="document.getElementById('eeDetailModal').remove(); window._eeOpenFormModal(${item.id}, 2);" style="color: #be185d; font-weight: 800; font-size: 13px; cursor: pointer; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border-radius: 4px; transition: background 0.15s;" onmouseover="this.style.background='#fce7f3'" onmouseout="this.style.background='transparent'">
+                                    ✍️ Cập nhật
+                                </span>
                             </div>
                         ` : `
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; font-size: 12.5px;">
-                                <div>
-                                    <div style="color: #9d174d; font-size: 12px; font-weight: 700; margin-bottom: 6px;">Ý kiến nhân sự:</div>
-                                    <div style="color: #831843; background: white; padding: 10px 14px; border-radius: 8px; border: 1px solid #fbcfe8; white-space: pre-wrap; font-size: 12.5px; line-height: 1.45;">${item.employee_opinion || '--'}</div>
+                            <div style="position: relative;">
+                                <div style="display: flex; justify-content: flex-end; margin-bottom: 6px;">
+                                    <span onclick="document.getElementById('eeDetailModal').remove(); window._eeOpenFormModal(${item.id}, 2);" style="color: #be185d; font-weight: 800; font-size: 12px; cursor: pointer; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;" onmouseover="this.style.color='#9d174d'" onmouseout="this.style.color='#be185d'">
+                                        ✍️ Cập nhật
+                                    </span>
                                 </div>
-                                <div>
-                                    <div style="color: #9d174d; font-size: 12px; font-weight: 700; margin-bottom: 6px;">Cam kết nhân sự:</div>
-                                    <div style="color: #831843; background: white; padding: 10px 14px; border-radius: 8px; border: 1px solid #fbcfe8; white-space: pre-wrap; font-size: 12.5px; line-height: 1.45;">${item.employee_commitment || '--'}</div>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; font-size: 12.5px;">
+                                    <div>
+                                        <div style="color: #9d174d; font-size: 12px; font-weight: 700; margin-bottom: 6px;">Ý kiến nhân sự:</div>
+                                        <div style="color: #831843; background: white; padding: 10px 14px; border-radius: 8px; border: 1px solid #fbcfe8; white-space: pre-wrap; font-size: 12.5px; line-height: 1.45;">${item.employee_opinion || '--'}</div>
+                                    </div>
+                                    <div>
+                                        <div style="color: #9d174d; font-size: 12px; font-weight: 700; margin-bottom: 6px;">Cam kết nhân sự:</div>
+                                        <div style="color: #831843; background: white; padding: 10px 14px; border-radius: 8px; border: 1px solid #fbcfe8; white-space: pre-wrap; font-size: 12.5px; line-height: 1.45;">${item.employee_commitment || '--'}</div>
+                                    </div>
                                 </div>
                             </div>
                         `}
@@ -924,27 +926,31 @@
                             <h3 style="font-size: 14px; font-weight: 800; color: #0369a1; margin: 0; display: flex; align-items: center; gap: 6px;">
                                 <span>📊</span> 3. BÁO CÁO TIẾN ĐỘ THỰC HIỆN
                             </h3>
-                            <button onclick="document.getElementById('eeDetailModal').remove(); window._eeOpenFormModal(${item.id}, 3);" style="padding: 6px 14px; background: linear-gradient(135deg, #0284c7, #0369a1); color: white; border: none; border-radius: 8px; font-weight: 800; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 8px rgba(2,132,199,0.3); transition: transform 0.1s;" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
-                                📊 Cập Nhật Báo Cáo Tiến Độ (Mục 3)
-                            </button>
                         </div>
 
                         ${!hasSec3Data ? `
                             <div style="padding: 14px 18px; background: white; border: 1px dashed #bae6fd; border-radius: 10px; color: #0369a1; font-size: 12.5px; font-weight: 600; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
                                 <span style="display: flex; align-items: center; gap: 8px;"><span>⚪</span> Chưa tới thời hạn cập nhật Báo cáo tiến độ thực hiện.</span>
-                                <button onclick="document.getElementById('eeDetailModal').remove(); window._eeOpenFormModal(${item.id}, 3);" style="padding: 6px 14px; background: #0284c7; color: white; border: none; border-radius: 6px; font-weight: 800; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
-                                    📊 Nhập Báo Cáo Tiến Độ Ngay
-                                </button>
+                                <span onclick="document.getElementById('eeDetailModal').remove(); window._eeOpenFormModal(${item.id}, 3);" style="color: #0369a1; font-weight: 800; font-size: 13px; cursor: pointer; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border-radius: 4px; transition: background 0.15s;" onmouseover="this.style.background='#e0f2fe'" onmouseout="this.style.background='transparent'">
+                                    📊 Cập nhật
+                                </span>
                             </div>
                         ` : `
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; font-size: 12.5px;">
-                                <div>
-                                    <div style="color: #0369a1; font-size: 12px; font-weight: 700; margin-bottom: 6px;">Quản lý báo cáo:</div>
-                                    <div style="color: #0c4a6e; background: white; padding: 10px 14px; border-radius: 8px; border: 1px solid #bae6fd; white-space: pre-wrap; font-size: 12.5px; line-height: 1.45;">${item.manager_report || '--'}</div>
+                            <div style="position: relative;">
+                                <div style="display: flex; justify-content: flex-end; margin-bottom: 6px;">
+                                    <span onclick="document.getElementById('eeDetailModal').remove(); window._eeOpenFormModal(${item.id}, 3);" style="color: #0369a1; font-weight: 800; font-size: 12px; cursor: pointer; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;" onmouseover="this.style.color='#075985'" onmouseout="this.style.color='#0369a1'">
+                                        📊 Cập nhật
+                                    </span>
                                 </div>
-                                <div>
-                                    <div style="color: #0369a1; font-size: 12px; font-weight: 700; margin-bottom: 6px;">Nhân sự báo cáo:</div>
-                                    <div style="color: #0c4a6e; background: white; padding: 10px 14px; border-radius: 8px; border: 1px solid #bae6fd; white-space: pre-wrap; font-size: 12.5px; line-height: 1.45;">${item.employee_report || '--'}</div>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; font-size: 12.5px;">
+                                    <div>
+                                        <div style="color: #0369a1; font-size: 12px; font-weight: 700; margin-bottom: 6px;">Quản lý báo cáo:</div>
+                                        <div style="color: #0c4a6e; background: white; padding: 10px 14px; border-radius: 8px; border: 1px solid #bae6fd; white-space: pre-wrap; font-size: 12.5px; line-height: 1.45;">${item.manager_report || '--'}</div>
+                                    </div>
+                                    <div>
+                                        <div style="color: #0369a1; font-size: 12px; font-weight: 700; margin-bottom: 6px;">Nhân sự báo cáo:</div>
+                                        <div style="color: #0c4a6e; background: white; padding: 10px 14px; border-radius: 8px; border: 1px solid #bae6fd; white-space: pre-wrap; font-size: 12.5px; line-height: 1.45;">${item.employee_report || '--'}</div>
+                                    </div>
                                 </div>
                             </div>
                         `}
