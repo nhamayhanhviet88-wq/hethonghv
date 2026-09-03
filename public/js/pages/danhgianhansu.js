@@ -5,8 +5,9 @@
         department: 'all',
         status: 'all',
         search: '',
+        viewMode: 'compact', // 'compact' | 'cards' | 'excel'
         items: [],
-        stats: { total: 0, pending: 0, in_progress: 0, completed: 0, avgRate: 0 },
+        stats: { total: 0, pending: 0, in_progress: 0, completed: 0 },
         users: []
     };
 
@@ -28,11 +29,11 @@
                             Quản lý đánh giá năng lực, theo dõi các lỗi & kế hoạch đào tạo, cam kết khắc phục của từng nhân sự.
                         </p>
                     </div>
-                    <div style="display: flex; gap: 10px;">
-                        <button onclick="window._eeExportExcel()" style="padding: 8px 14px; background: #16a34a; color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 8px rgba(22,163,74,0.25);">
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button onclick="window._eeExportExcel()" style="padding: 8px 14px; background: #16a34a; color: white; border: none; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 8px rgba(22,163,74,0.25);">
                             📊 Xuất Excel
                         </button>
-                        <button onclick="window._eeOpenFormModal()" style="padding: 8px 16px; background: linear-gradient(135deg, #7c3aed, #6d28d9); color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(124,58,237,0.3);">
+                        <button onclick="window._eeOpenFormModal()" style="padding: 8px 16px; background: linear-gradient(135deg, #7c3aed, #6d28d9); color: white; border: none; border-radius: 8px; font-size: 12px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(124,58,237,0.3);">
                             ➕ Thêm Đánh Giá Mới
                         </button>
                     </div>
@@ -43,7 +44,7 @@
                     <!-- Injected by JS -->
                 </div>
 
-                <!-- Filter Controls Bar -->
+                <!-- Filter Controls & View Mode Toggle Bar -->
                 <div style="background: white; border-radius: 12px; padding: 12px 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.04); margin-bottom: 16px; border: 1px solid #e2e8f0; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between;">
                     <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
                         <!-- Select Month / Year -->
@@ -69,54 +70,26 @@
                                 ${DEPARTMENTS.map(d => `<option value="${d}">${d}</option>`).join('')}
                             </select>
                         </div>
-
-                        <!-- Status Filter -->
-                        <div style="display: flex; align-items: center; gap: 6px;">
-                            <label style="font-size: 12px; font-weight: 700; color: #475569;">🎯 Trạng thái:</label>
-                            <select id="eeFilterStatus" onchange="window._eeOnFilterChange()" style="padding: 7px 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; font-weight: 600; background: #f8fafc; outline: none;">
-                                <option value="all">Tất Cả Trạng Thái</option>
-                                <option value="pending">🔴 Chưa Xử Lý (0%)</option>
-                                <option value="in_progress">🟡 Đang Khắc Phục (1-99%)</option>
-                                <option value="completed">🟢 Đã Hoàn Thành (100%)</option>
-                            </select>
-                        </div>
                     </div>
 
-                    <!-- Search Input -->
-                    <div style="position: relative; width: 260px;">
-                        <input id="eeSearchInput" type="text" placeholder="🔍 Tìm nhân sự, lỗi, bộ phận..." oninput="window._eeOnSearchInput()" style="width: 100%; padding: 7px 10px 7px 32px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; outline: none; box-sizing: border-box;">
-                        <span style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 13px;">🔍</span>
+                    <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
+                        <!-- Search Input -->
+                        <div style="position: relative; width: 220px;">
+                            <input id="eeSearchInput" type="text" placeholder="🔍 Tìm nhân sự, lỗi..." oninput="window._eeOnSearchInput()" style="width: 100%; padding: 7px 10px 7px 30px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; outline: none; box-sizing: border-box;">
+                            <span style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 12px;">🔍</span>
+                        </div>
+
+                        <!-- View Mode Switcher -->
+                        <div style="display: flex; background: #f1f5f9; padding: 3px; border-radius: 8px; border: 1px solid #cbd5e1;">
+                            <button id="btnViewCompact" onclick="window._eeSetViewMode('compact')" style="padding: 5px 10px; border: none; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; background: #1e40af; color: white;">📋 Bảng Gọn (100% Màn)</button>
+                            <button id="btnViewCards" onclick="window._eeSetViewMode('cards')" style="padding: 5px 10px; border: none; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; background: transparent; color: #475569;">🎴 Dạng Thẻ (Card)</button>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Table Container (Full Width) -->
-                <div style="background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; overflow-x: auto; width: 100%;">
-                    <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 11px; table-layout: auto;">
-                        <thead>
-                            <tr style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.3px; font-weight: 800;">
-                                <th style="padding: 10px 6px; background: #1e3a8a; color: white; border-right: 1px solid rgba(255,255,255,0.1); width: 60px; text-align: center;">Tháng</th>
-                                <th style="padding: 10px 4px; background: #1e3a8a; color: white; border-right: 1px solid rgba(255,255,255,0.1); width: 30px; text-align: center;">STT</th>
-                                <th style="padding: 10px 8px; background: #1e3a8a; color: white; border-right: 1px solid rgba(255,255,255,0.1); min-width: 85px;">Họ Tên</th>
-                                <th style="padding: 10px 8px; background: #1e3a8a; color: white; border-right: 1px solid rgba(255,255,255,0.1); min-width: 80px;">Bộ Phận</th>
-                                <th style="padding: 10px 8px; background: #1e3a8a; color: white; border-right: 1px solid rgba(255,255,255,0.1); min-width: 105px;">Cải Thiện / Lỗi</th>
-                                <th style="padding: 10px 8px; background: #1e3a8a; color: white; border-right: 1px solid rgba(255,255,255,0.1); min-width: 120px;">Đánh Giá Năng Lực NV Quản Lý</th>
-                                <th style="padding: 10px 8px; background: #1e3a8a; color: white; border-right: 1px solid rgba(255,255,255,0.1); min-width: 105px;">Nhân Sự Khắc Phục</th>
-                                <th style="padding: 10px 8px; background: #1e3a8a; color: white; border-right: 1px solid rgba(255,255,255,0.1); min-width: 95px;">Hướng Đào Tạo</th>
-                                <th style="padding: 10px 8px; background: #1e3a8a; color: white; border-right: 1px solid rgba(255,255,255,0.1); min-width: 95px;">Cam Kết Của Quản Lý</th>
-                                <!-- Pink Block: Employee Input -->
-                                <th style="padding: 10px 8px; background: #db2777; color: white; border-right: 1px solid rgba(255,255,255,0.1); min-width: 95px;">Ý Kiến Của Nhân Sự</th>
-                                <th style="padding: 10px 8px; background: #db2777; color: white; border-right: 1px solid rgba(255,255,255,0.1); min-width: 85px;">Time Xử Lý Của Nhân Sự</th>
-                                <th style="padding: 10px 8px; background: #db2777; color: white; border-right: 1px solid rgba(255,255,255,0.1); min-width: 95px;">Cam Kết Của Nhân Sự</th>
-                                <!-- Teal Block: Report & Progress -->
-                                <th style="padding: 10px 8px; background: #0284c7; color: white; border-right: 1px solid rgba(255,255,255,0.1); min-width: 105px;">Quản Lý Báo Cáo</th>
-                                <th style="padding: 10px 8px; background: #0284c7; color: white; border-right: 1px solid rgba(255,255,255,0.1); min-width: 105px;">Nhân Sự Báo Cáo</th>
-                                <th style="padding: 10px 6px; background: #334155; color: white; width: 75px; text-align: center;">Thao Tác</th>
-                            </tr>
-                        </thead>
-                        <tbody id="eeTableBody">
-                            <!-- Injected by JS -->
-                        </tbody>
-                    </table>
+                <!-- Main View Display Area -->
+                <div id="eeMainViewArea" style="width: 100%;">
+                    <!-- Injected by JS -->
                 </div>
             </div>
 
@@ -156,7 +129,7 @@
             }
 
             _eeRenderStats();
-            _eeRenderTable();
+            _eeRenderCurrentView();
         } catch(err) {
             console.error('Error loading employee evaluation data:', err);
             showToast('⚠️ Không thể tải dữ liệu đánh giá nhân sự', 'error');
@@ -169,102 +142,289 @@
         var s = _eeState.stats;
 
         container.innerHTML = `
-            <div style="background: white; border-radius: 12px; padding: 16px; border: 1px solid #e2e8f0; box-shadow: 0 2px 8px rgba(0,0,0,0.03); display: flex; align-items: center; gap: 14px;">
-                <div style="width: 44px; height: 44px; border-radius: 10px; background: #e0f2fe; color: #0284c7; display: flex; align-items: center; justify-content: center; font-size: 20px;">📋</div>
+            <div style="background: white; border-radius: 12px; padding: 14px; border: 1px solid #e2e8f0; box-shadow: 0 2px 8px rgba(0,0,0,0.03); display: flex; align-items: center; gap: 12px;">
+                <div style="width: 40px; height: 40px; border-radius: 10px; background: #e0f2fe; color: #0284c7; display: flex; align-items: center; justify-content: center; font-size: 18px;">📋</div>
                 <div>
                     <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">TỔNG ĐÁNH GIÁ</div>
-                    <div style="font-size: 22px; font-weight: 900; color: #0f172a;">${s.total}</div>
+                    <div style="font-size: 20px; font-weight: 900; color: #0f172a;">${s.total}</div>
                 </div>
             </div>
 
-            <div style="background: white; border-radius: 12px; padding: 16px; border: 1px solid #fee2e2; box-shadow: 0 2px 8px rgba(239,68,68,0.06); display: flex; align-items: center; gap: 14px;">
-                <div style="width: 44px; height: 44px; border-radius: 10px; background: #fee2e2; color: #dc2626; display: flex; align-items: center; justify-content: center; font-size: 20px;">🔴</div>
+            <div style="background: white; border-radius: 12px; padding: 14px; border: 1px solid #fee2e2; box-shadow: 0 2px 8px rgba(239,68,68,0.06); display: flex; align-items: center; gap: 12px;">
+                <div style="width: 40px; height: 40px; border-radius: 10px; background: #fee2e2; color: #dc2626; display: flex; align-items: center; justify-content: center; font-size: 18px;">🔴</div>
                 <div>
                     <div style="font-size: 11px; font-weight: 700; color: #991b1b; text-transform: uppercase;">CHƯA XỬ LÝ</div>
-                    <div style="font-size: 22px; font-weight: 900; color: #dc2626;">${s.pending}</div>
+                    <div style="font-size: 20px; font-weight: 900; color: #dc2626;">${s.pending}</div>
                 </div>
             </div>
 
-            <div style="background: white; border-radius: 12px; padding: 16px; border: 1px solid #fef3c7; box-shadow: 0 2px 8px rgba(245,158,11,0.06); display: flex; align-items: center; gap: 14px;">
-                <div style="width: 44px; height: 44px; border-radius: 10px; background: #fef3c7; color: #d97706; display: flex; align-items: center; justify-content: center; font-size: 20px;">🟡</div>
+            <div style="background: white; border-radius: 12px; padding: 14px; border: 1px solid #fef3c7; box-shadow: 0 2px 8px rgba(245,158,11,0.06); display: flex; align-items: center; gap: 12px;">
+                <div style="width: 40px; height: 40px; border-radius: 10px; background: #fef3c7; color: #d97706; display: flex; align-items: center; justify-content: center; font-size: 18px;">🟡</div>
                 <div>
                     <div style="font-size: 11px; font-weight: 700; color: #92400e; text-transform: uppercase;">ĐANG KHẮC PHỤC</div>
-                    <div style="font-size: 22px; font-weight: 900; color: #d97706;">${s.in_progress}</div>
+                    <div style="font-size: 20px; font-weight: 900; color: #d97706;">${s.in_progress}</div>
                 </div>
             </div>
 
-            <div style="background: white; border-radius: 12px; padding: 16px; border: 1px solid #d1fae5; box-shadow: 0 2px 8px rgba(16,185,129,0.06); display: flex; align-items: center; gap: 14px;">
-                <div style="width: 44px; height: 44px; border-radius: 10px; background: #d1fae5; color: #059669; display: flex; align-items: center; justify-content: center; font-size: 20px;">🟢</div>
+            <div style="background: white; border-radius: 12px; padding: 14px; border: 1px solid #d1fae5; box-shadow: 0 2px 8px rgba(16,185,129,0.06); display: flex; align-items: center; gap: 12px;">
+                <div style="width: 40px; height: 40px; border-radius: 10px; background: #d1fae5; color: #059669; display: flex; align-items: center; justify-content: center; font-size: 18px;">🟢</div>
                 <div>
                     <div style="font-size: 11px; font-weight: 700; color: #065f46; text-transform: uppercase;">HOÀN THÀNH</div>
-                    <div style="font-size: 22px; font-weight: 900; color: #059669;">${s.completed}</div>
+                    <div style="font-size: 20px; font-weight: 900; color: #059669;">${s.completed}</div>
                 </div>
             </div>
         `;
     }
 
-    function _eeRenderTable() {
-        var tbody = document.getElementById('eeTableBody');
-        if (!tbody) return;
+    window._eeSetViewMode = function(mode) {
+        _eeState.viewMode = mode;
+
+        var bCompact = document.getElementById('btnViewCompact');
+        var bCards = document.getElementById('btnViewCards');
+
+        if (bCompact && bCards) {
+            if (mode === 'compact') {
+                bCompact.style.background = '#1e40af'; bCompact.style.color = 'white';
+                bCards.style.background = 'transparent'; bCards.style.color = '#475569';
+            } else {
+                bCards.style.background = '#1e40af'; bCards.style.color = 'white';
+                bCompact.style.background = 'transparent'; bCompact.style.color = '#475569';
+            }
+        }
+
+        _eeRenderCurrentView();
+    };
+
+    function _eeRenderCurrentView() {
+        var container = document.getElementById('eeMainViewArea');
+        if (!container) return;
 
         if (_eeState.items.length === 0) {
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="15" style="padding: 40px; text-align: center; color: #94a3b8; font-size: 14px;">
-                        <div style="font-size: 32px; margin-bottom: 8px;">📭</div>
-                        Không có dữ liệu đánh giá nhân sự nào khớp với bộ lọc.
-                    </td>
-                </tr>
+            container.innerHTML = `
+                <div style="background: white; border-radius: 14px; padding: 40px; text-align: center; color: #94a3b8; border: 1px solid #e2e8f0;">
+                    <div style="font-size: 36px; margin-bottom: 8px;">📭</div>
+                    <div style="font-size: 14px; font-weight: 700; color: #475569;">Không có dữ liệu đánh giá nhân sự nào</div>
+                    <div style="font-size: 12px; margin-top: 4px;">Vui lòng chọn kỳ khác hoặc bấm "+ Thêm Đánh Giá Mới".</div>
+                </div>
             `;
             return;
         }
 
-        var html = '';
+        if (_eeState.viewMode === 'cards') {
+            _eeRenderCardsView(container);
+        } else {
+            _eeRenderCompactTableView(container);
+        }
+    }
+
+    // 📋 VIEW MODE 1: COMPACT 100% FIT TABLE (NOT A SINGLE SCROLLBAR)
+    function _eeRenderCompactTableView(container) {
+        var html = `
+            <div style="background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; overflow: hidden; width: 100%;">
+                <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 11px; table-layout: fixed;">
+                    <thead>
+                        <tr style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.2px; font-weight: 800; color: white;">
+                            <th style="padding: 9px 4px; background: #1e3a8a; width: 4%; text-align: center; border-right: 1px solid rgba(255,255,255,0.1);">Kỳ</th>
+                            <th style="padding: 9px 2px; background: #1e3a8a; width: 3%; text-align: center; border-right: 1px solid rgba(255,255,255,0.1);">STT</th>
+                            <th style="padding: 9px 6px; background: #1e3a8a; width: 8%; border-right: 1px solid rgba(255,255,255,0.1);">Họ Tên</th>
+                            <th style="padding: 9px 4px; background: #1e3a8a; width: 6%; border-right: 1px solid rgba(255,255,255,0.1);">Bộ Phận</th>
+                            <th style="padding: 9px 6px; background: #1e3a8a; width: 10%; border-right: 1px solid rgba(255,255,255,0.1);">Cải Thiện/Lỗi</th>
+                            <th style="padding: 9px 6px; background: #1e3a8a; width: 11%; border-right: 1px solid rgba(255,255,255,0.1);">ĐG Quản Lý</th>
+                            <th style="padding: 9px 6px; background: #1e3a8a; width: 9%; border-right: 1px solid rgba(255,255,255,0.1);">NS Khắc Phục</th>
+                            <th style="padding: 9px 6px; background: #1e3a8a; width: 8%; border-right: 1px solid rgba(255,255,255,0.1);">Hướng Đào Tạo</th>
+                            <th style="padding: 9px 6px; background: #1e3a8a; width: 8%; border-right: 1px solid rgba(255,255,255,0.1);">Cam Kết QL</th>
+                            
+                            <!-- Pink: Employee -->
+                            <th style="padding: 9px 6px; background: #db2777; width: 8%; border-right: 1px solid rgba(255,255,255,0.1);">Ý Kiến NS</th>
+                            <th style="padding: 9px 4px; background: #db2777; width: 6%; border-right: 1px solid rgba(255,255,255,0.1);">Hạn XL</th>
+                            <th style="padding: 9px 6px; background: #db2777; width: 7%; border-right: 1px solid rgba(255,255,255,0.1);">Cam Kết NS</th>
+                            
+                            <!-- Teal: Reports -->
+                            <th style="padding: 9px 6px; background: #0284c7; width: 8%; border-right: 1px solid rgba(255,255,255,0.1);">Báo Cáo QL</th>
+                            <th style="padding: 9px 6px; background: #0284c7; width: 8%; border-right: 1px solid rgba(255,255,255,0.1);">Báo Cáo NS</th>
+                            
+                            <!-- Action -->
+                            <th style="padding: 9px 4px; background: #334155; width: 6%; text-align: center;">Thao Tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
         _eeState.items.forEach(function(item, idx) {
+            var monthShort = item.month_year ? item.month_year.replace('Tháng ', 'T') : '--';
+
             html += `
-                <tr style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
-                    <td style="padding: 10px 8px; text-align: center; font-weight: 700; color: #1e40af; background: #f0f9ff; border-right: 1px solid #e2e8f0;">${item.month_year || '--'}</td>
-                    <td style="padding: 10px 6px; text-align: center; font-weight: 700; color: #64748b; border-right: 1px solid #e2e8f0;">${idx + 1}</td>
-                    <td style="padding: 10px; font-weight: 800; color: #0f172a; border-right: 1px solid #e2e8f0;">${item.employee_name || '--'}</td>
-                    <td style="padding: 10px; border-right: 1px solid #e2e8f0;"><span style="padding: 3px 8px; border-radius: 6px; background: #f1f5f9; font-weight: 700; color: #334155;">${item.department || '--'}</span></td>
-                    <td style="padding: 10px; border-right: 1px solid #e2e8f0; color: #dc2626; font-weight: 600;">${item.improvement_errors || '--'}</td>
-                    <td style="padding: 10px; border-right: 1px solid #e2e8f0; color: #334155;">${item.manager_evaluation || '--'}</td>
-                    <td style="padding: 10px; border-right: 1px solid #e2e8f0; color: #2563eb; font-weight: 600;">${item.remediation_action || '--'}</td>
-                    <td style="padding: 10px; border-right: 1px solid #e2e8f0; color: #7c3aed;">${item.training_direction || '--'}</td>
-                    <td style="padding: 10px; border-right: 1px solid #e2e8f0; color: #059669;">${item.manager_commitment || '--'}</td>
+                <tr style="border-bottom: 1px solid #f1f5f9; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background='white'" onclick="window._eeOpenDetailModal(${item.id})">
+                    <td style="padding: 8px 4px; text-align: center; font-weight: 700; color: #1e40af; background: #f0f9ff; border-right: 1px solid #e2e8f0; font-size: 10px;">${monthShort}</td>
+                    <td style="padding: 8px 2px; text-align: center; font-weight: 700; color: #64748b; border-right: 1px solid #e2e8f0;">${idx + 1}</td>
+                    <td style="padding: 8px 6px; font-weight: 800; color: #0f172a; border-right: 1px solid #e2e8f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${item.employee_name}">${item.employee_name || '--'}</td>
+                    <td style="padding: 8px 4px; border-right: 1px solid #e2e8f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${item.department}"><span style="padding: 2px 5px; border-radius: 4px; background: #f1f5f9; font-weight: 700; color: #334155; font-size: 10px;">${item.department || '--'}</span></td>
+                    
+                    <td style="padding: 8px 6px; border-right: 1px solid #e2e8f0; color: #dc2626; font-weight: 600; word-break: break-word; line-height: 1.3;" title="${item.improvement_errors}">${_clampText(item.improvement_errors)}</td>
+                    <td style="padding: 8px 6px; border-right: 1px solid #e2e8f0; color: #334155; word-break: break-word; line-height: 1.3;" title="${item.manager_evaluation}">${_clampText(item.manager_evaluation)}</td>
+                    <td style="padding: 8px 6px; border-right: 1px solid #e2e8f0; color: #2563eb; font-weight: 600; word-break: break-word; line-height: 1.3;" title="${item.remediation_action}">${_clampText(item.remediation_action)}</td>
+                    <td style="padding: 8px 6px; border-right: 1px solid #e2e8f0; color: #7c3aed; word-break: break-word; line-height: 1.3;" title="${item.training_direction}">${_clampText(item.training_direction)}</td>
+                    <td style="padding: 8px 6px; border-right: 1px solid #e2e8f0; color: #059669; word-break: break-word; line-height: 1.3;" title="${item.manager_commitment}">${_clampText(item.manager_commitment)}</td>
                     
                     <!-- Pink Section: Employee Input -->
-                    <td style="padding: 10px; background: #fdf2f8; border-right: 1px solid #fbcfe8; color: #be185d;">${item.employee_opinion || '--'}</td>
-                    <td style="padding: 10px; background: #fdf2f8; border-right: 1px solid #fbcfe8; font-weight: 700; color: #9d174d;">${item.resolution_deadline || '--'}</td>
-                    <td style="padding: 10px; background: #fdf2f8; border-right: 1px solid #fbcfe8; color: #be185d;">${item.employee_commitment || '--'}</td>
+                    <td style="padding: 8px 6px; background: #fdf2f8; border-right: 1px solid #fbcfe8; color: #be185d; word-break: break-word; line-height: 1.3;" title="${item.employee_opinion}">${_clampText(item.employee_opinion)}</td>
+                    <td style="padding: 8px 4px; background: #fdf2f8; border-right: 1px solid #fbcfe8; font-weight: 700; color: #9d174d; font-size: 10px;" title="${item.resolution_deadline}">${item.resolution_deadline || '--'}</td>
+                    <td style="padding: 8px 6px; background: #fdf2f8; border-right: 1px solid #fbcfe8; color: #be185d; word-break: break-word; line-height: 1.3;" title="${item.employee_commitment}">${_clampText(item.employee_commitment)}</td>
                     
                     <!-- Teal Section: Progress Report -->
-                    <td style="padding: 10px; background: #f0f9ff; border-right: 1px solid #bae6fd; color: #0369a1;">${item.manager_report || '--'}</td>
-                    <td style="padding: 10px; background: #f0f9ff; border-right: 1px solid #bae6fd; color: #0369a1;">${item.employee_report || '--'}</td>
+                    <td style="padding: 8px 6px; background: #f0f9ff; border-right: 1px solid #bae6fd; color: #0369a1; word-break: break-word; line-height: 1.3;" title="${item.manager_report}">${_clampText(item.manager_report)}</td>
+                    <td style="padding: 8px 6px; background: #f0f9ff; border-right: 1px solid #bae6fd; color: #0369a1; word-break: break-word; line-height: 1.3;" title="${item.employee_report}">${_clampText(item.employee_report)}</td>
                     
                     <!-- Actions -->
-                    <td style="padding: 10px; text-align: center;">
-                        <div style="display: flex; gap: 6px; justify-content: center;">
-                            <button onclick="window._eeOpenReportModal(${item.id})" title="Cập Nhật Báo Cáo" style="padding: 5px 8px; background: #e0f2fe; color: #0284c7; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 700;">📊</button>
-                            <button onclick="window._eeOpenFormModal(${item.id})" title="Chỉnh Sửa Toàn Bộ" style="padding: 5px 8px; background: #f1f5f9; color: #475569; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 700;">✏️</button>
-                            <button onclick="window._eeDelete(${item.id})" title="Xóa" style="padding: 5px 8px; background: #fee2e2; color: #dc2626; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 700;">🗑️</button>
+                    <td style="padding: 8px 4px; text-align: center;" onclick="event.stopPropagation()">
+                        <div style="display: flex; gap: 4px; justify-content: center;">
+                            <button onclick="window._eeOpenDetailModal(${item.id})" title="Xem Chi Tiết Đầy Đủ" style="padding: 3px 5px; background: #e0e7ff; color: #4338ca; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;">👁️</button>
+                            <button onclick="window._eeOpenFormModal(${item.id})" title="Chỉnh Sửa" style="padding: 3px 5px; background: #f1f5f9; color: #475569; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;">✏️</button>
+                            <button onclick="window._eeDelete(${item.id})" title="Xóa" style="padding: 3px 5px; background: #fee2e2; color: #dc2626; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;">🗑️</button>
                         </div>
                     </td>
                 </tr>
             `;
         });
 
-        tbody.innerHTML = html;
+        html += `
+                    </tbody>
+                </table>
+            </div>
+            <div style="margin-top: 8px; font-size: 11px; color: #64748b; text-align: right; font-style: italic;">
+                💡 Mẹo: Bảng được tự động căn vừa 100% màn hình. Rê chuột vào ô bất kỳ để xem toàn bộ nội dung hoặc bấm icon 👁️ để xem dạng hồ sơ.
+            </div>
+        `;
+
+        container.innerHTML = html;
     }
+
+    // 🎴 VIEW MODE 2: CARD GRID VIEW (EACH EMPLOYEE IN A BEAUTIFUL CARD)
+    function _eeRenderCardsView(container) {
+        var html = `<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 16px;">`;
+
+        _eeState.items.forEach(function(item, idx) {
+            html += `
+                <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 4px 14px rgba(0,0,0,0.04); overflow: hidden; display: flex; flex-direction: column;">
+                    <!-- Card Header -->
+                    <div style="padding: 14px 18px; background: linear-gradient(135deg, #1e3a8a, #1e40af); color: white; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div style="font-size: 16px; font-weight: 800; display: flex; align-items: center; gap: 8px;">
+                                <span>👤 ${item.employee_name}</span>
+                                <span style="font-size: 10px; font-weight: 700; background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 10px;">${item.department || '--'}</span>
+                            </div>
+                            <div style="font-size: 11px; color: #93c5fd; margin-top: 2px;">📅 ${item.month_year || '--'} • STT: #${idx + 1}</div>
+                        </div>
+                        <div style="display: flex; gap: 6px;">
+                            <button onclick="window._eeOpenFormModal(${item.id})" style="padding: 6px 10px; background: rgba(255,255,255,0.2); color: white; border: none; border-radius: 6px; font-size: 12px; cursor: pointer;">✏️ Sửa</button>
+                            <button onclick="window._eeDelete(${item.id})" style="padding: 6px 10px; background: rgba(239,68,68,0.3); color: white; border: none; border-radius: 6px; font-size: 12px; cursor: pointer;">🗑️</button>
+                        </div>
+                    </div>
+
+                    <!-- Card Body -->
+                    <div style="padding: 16px; display: flex; flex-direction: column; gap: 12px; flex: 1;">
+                        <!-- Manager Section -->
+                        <div style="background: #f8fafc; padding: 12px; border-radius: 10px; border-left: 4px solid #1e3a8a;">
+                            <div style="font-size: 11px; font-weight: 800; color: #1e3a8a; text-transform: uppercase; margin-bottom: 6px;">👨‍💼 Đánh Giá Từ Quản Lý</div>
+                            <div style="font-size: 12px; color: #dc2626; font-weight: 700; margin-bottom: 4px;">⚠️ Lỗi/Cải thiện: <span style="font-weight: 500; color: #334155;">${item.improvement_errors || '--'}</span></div>
+                            <div style="font-size: 12px; color: #334155; margin-bottom: 4px;">📊 Đánh giá năng lực: <span>${item.manager_evaluation || '--'}</span></div>
+                            <div style="font-size: 12px; color: #2563eb; font-weight: 700; margin-bottom: 4px;">🛠️ Khắc phục: <span style="font-weight: 500; color: #334155;">${item.remediation_action || '--'}</span></div>
+                            <div style="font-size: 12px; color: #7c3aed; font-weight: 700; margin-bottom: 4px;">🎓 Hướng đào tạo: <span style="font-weight: 500; color: #334155;">${item.training_direction || '--'}</span></div>
+                            <div style="font-size: 12px; color: #059669; font-weight: 700;">🤝 Cam kết QL: <span style="font-weight: 500; color: #334155;">${item.manager_commitment || '--'}</span></div>
+                        </div>
+
+                        <!-- Employee Section -->
+                        <div style="background: #fdf2f8; padding: 12px; border-radius: 10px; border-left: 4px solid #db2777;">
+                            <div style="font-size: 11px; font-weight: 800; color: #be185d; text-transform: uppercase; margin-bottom: 6px;">💬 Ý Kiến & Cam Kết Nhân Sự</div>
+                            <div style="font-size: 12px; color: #be185d; margin-bottom: 4px;">Ý kiến: <span style="color: #334155;">${item.employee_opinion || '--'}</span></div>
+                            <div style="font-size: 12px; color: #be185d; margin-bottom: 4px;">⏰ Hạn xử lý: <span style="font-weight: 800; color: #9d174d;">${item.resolution_deadline || '--'}</span></div>
+                            <div style="font-size: 12px; color: #be185d;">Cam kết: <span style="color: #334155;">${item.employee_commitment || '--'}</span></div>
+                        </div>
+
+                        <!-- Progress Report Section -->
+                        <div style="background: #f0f9ff; padding: 12px; border-radius: 10px; border-left: 4px solid #0284c7;">
+                            <div style="font-size: 11px; font-weight: 800; color: #0369a1; text-transform: uppercase; margin-bottom: 6px;">📊 Báo Cáo Tiến Độ</div>
+                            <div style="font-size: 12px; color: #0369a1; margin-bottom: 4px;">Quản lý báo cáo: <span style="color: #334155;">${item.manager_report || '--'}</span></div>
+                            <div style="font-size: 12px; color: #0369a1;">Nhân sự báo cáo: <span style="color: #334155;">${item.employee_report || '--'}</span></div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+
+        html += `</div>`;
+        container.innerHTML = html;
+    }
+
+    function _clampText(txt) {
+        if (!txt) return '--';
+        return txt.length > 45 ? txt.substring(0, 42) + '...' : txt;
+    }
+
+    // Modal Detail View
+    window._eeOpenDetailModal = function(id) {
+        var item = _eeState.items.find(i => i.id === id);
+        if (!item) return;
+
+        var modalContainer = document.getElementById('eeModalContainer');
+        if (!modalContainer) return;
+
+        modalContainer.innerHTML = `
+            <div style="position: fixed; inset: 0; background: rgba(15,23,42,0.6); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 20px;">
+                <div style="background: white; border-radius: 18px; width: 100%; max-width: 750px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 40px rgba(0,0,0,0.2);">
+                    <div style="padding: 20px 24px; background: linear-gradient(135deg, #1e3a8a, #1e40af); border-radius: 18px 18px 0 0; color: white; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <h3 style="margin: 0; font-size: 18px; font-weight: 800;">👤 Hồ Sơ Đánh Giá: ${item.employee_name}</h3>
+                            <div style="font-size: 12px; color: #93c5fd; margin-top: 4px;">Bộ phận: ${item.department} • Kỳ: ${item.month_year}</div>
+                        </div>
+                        <button onclick="window._eeCloseModal()" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 32px; height: 32px; border-radius: 8px; font-size: 18px; cursor: pointer;">✕</button>
+                    </div>
+
+                    <div style="padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+                        <div style="background: #f8fafc; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0;">
+                            <h4 style="margin: 0 0 10px 0; color: #1e3a8a; font-size: 14px; font-weight: 800;">👨‍💼 1. ĐÁNH GIÁ TỪ QUẢN LÝ</h4>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 13px;">
+                                <div><strong style="color: #dc2626;">Cải thiện / Lỗi:</strong> ${item.improvement_errors || '--'}</div>
+                                <div><strong style="color: #334155;">Đánh giá năng lực:</strong> ${item.manager_evaluation || '--'}</div>
+                                <div><strong style="color: #2563eb;">Nhân sự khắc phục:</strong> ${item.remediation_action || '--'}</div>
+                                <div><strong style="color: #7c3aed;">Hướng đào tạo:</strong> ${item.training_direction || '--'}</div>
+                                <div style="grid-column: span 2;"><strong style="color: #059669;">Cam kết của Quản lý:</strong> ${item.manager_commitment || '--'}</div>
+                            </div>
+                        </div>
+
+                        <div style="background: #fdf2f8; padding: 16px; border-radius: 12px; border: 1px solid #fbcfe8;">
+                            <h4 style="margin: 0 0 10px 0; color: #be185d; font-size: 14px; font-weight: 800;">💬 2. Ý KIẾN & CAM KẾT TỪ NHÂN SỰ</h4>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 13px;">
+                                <div><strong style="color: #be185d;">Ý kiến nhân sự:</strong> ${item.employee_opinion || '--'}</div>
+                                <div><strong style="color: #9d174d;">Hạn xử lý (Time):</strong> ${item.resolution_deadline || '--'}</div>
+                                <div style="grid-column: span 2;"><strong style="color: #be185d;">Cam kết nhân sự:</strong> ${item.employee_commitment || '--'}</div>
+                            </div>
+                        </div>
+
+                        <div style="background: #f0f9ff; padding: 16px; border-radius: 12px; border: 1px solid #bae6fd;">
+                            <h4 style="margin: 0 0 10px 0; color: #0284c7; font-size: 14px; font-weight: 800;">📊 3. BÁO CÁO TIẾN ĐỘ THỰC HIỆN</h4>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 13px;">
+                                <div><strong style="color: #0369a1;">Quản lý báo cáo:</strong> ${item.manager_report || '--'}</div>
+                                <div><strong style="color: #0369a1;">Nhân sự báo cáo:</strong> ${item.employee_report || '--'}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="padding: 16px 24px; background: #f8fafc; border-radius: 0 0 18px 18px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 10px;">
+                        <button onclick="window._eeOpenFormModal(${item.id})" style="padding: 8px 18px; background: #1e40af; color: white; border: none; border-radius: 8px; font-weight: 700; cursor: pointer;">Chỉnh Sửa</button>
+                        <button onclick="window._eeCloseModal()" style="padding: 8px 16px; background: #e2e8f0; color: #475569; border: none; border-radius: 8px; font-weight: 700; cursor: pointer;">Đóng</button>
+                    </div>
+                </div>
+            </div>
+        `;
+    };
 
     // Filter Handlers
     window._eeOnFilterChange = function() {
         var m = document.getElementById('eeFilterMonth');
         var d = document.getElementById('eeFilterDept');
-        var s = document.getElementById('eeFilterStatus');
         if (m) _eeState.monthYear = m.value;
         if (d) _eeState.department = d.value;
-        if (s) _eeState.status = s.value;
         _eeLoadData();
     };
 
@@ -290,7 +450,7 @@
 
         modalContainer.innerHTML = `
             <div style="position: fixed; inset: 0; background: rgba(15,23,42,0.6); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 20px;">
-                <div style="background: white; border-radius: 18px; width: 100%; max-width: 900px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 40px rgba(0,0,0,0.2); animation: fadeIn 0.2s ease-out;">
+                <div style="background: white; border-radius: 18px; width: 100%; max-width: 900px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 40px rgba(0,0,0,0.2);">
                     <!-- Header -->
                     <div style="padding: 20px 24px; background: linear-gradient(135deg, #1e3a8a, #1e40af); border-radius: 18px 18px 0 0; color: white; display: flex; justify-content: space-between; align-items: center;">
                         <h3 style="margin: 0; font-size: 18px; font-weight: 800; display: flex; align-items: center; gap: 8px;">
@@ -307,7 +467,7 @@
                         </div>
 
                         <div>
-                            <label style="display: block; font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 6px;">👤 Chọn Nhân Sự (Có sẵn) / Nhập Tên <span style="color: #dc2626;">*</span></label>
+                            <label style="display: block; font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 6px;">👤 Chọn Nhân Sự / Nhập Tên <span style="color: #dc2626;">*</span></label>
                             <div style="display: flex; gap: 8px;">
                                 <select id="formUserSelect" onchange="window._eeOnUserSelect(this)" style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 13px;">
                                     <option value="">-- Chọn từ danh sách --</option>
@@ -326,27 +486,27 @@
 
                         <div>
                             <label style="display: block; font-size: 12px; font-weight: 700; color: #dc2626; margin-bottom: 6px;">⚠️ Cải Thiện / Lỗi</label>
-                            <input id="formImprovementErrors" type="text" value="${item ? (item.improvement_errors || '') : ''}" placeholder="VD: May đẹp nhưng hay đi muộn..." style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 13px; box-sizing: border-box;">
+                            <input id="formImprovementErrors" type="text" value="${item ? (item.improvement_errors || '') : ''}" placeholder="VD: Hay đi muộn, ẩu kích thước..." style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 13px; box-sizing: border-box;">
                         </div>
 
                         <div style="grid-column: span 2;">
                             <label style="display: block; font-size: 12px; font-weight: 700; color: #1e3a8a; margin-bottom: 6px;">📊 Đánh Giá Năng Lực NV Của Quản Lý</label>
-                            <textarea id="formManagerEval" rows="2" placeholder="VD: Chốt đơn tốt nhưng ẩu phần tính size..." style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 13px; box-sizing: border-box;">${item ? (item.manager_evaluation || '') : ''}</textarea>
+                            <textarea id="formManagerEval" rows="2" placeholder="Nội dung đánh giá từ quản lý..." style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 13px; box-sizing: border-box;">${item ? (item.manager_evaluation || '') : ''}</textarea>
                         </div>
 
                         <div>
                             <label style="display: block; font-size: 12px; font-weight: 700; color: #2563eb; margin-bottom: 6px;">🛠️ Nhân Sự Khắc Phục (Hành động)</label>
-                            <input id="formRemediation" type="text" value="${item ? (item.remediation_action || '') : ''}" placeholder="Cần phải làm gì để sửa lỗi..." style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 13px; box-sizing: border-box;">
+                            <input id="formRemediation" type="text" value="${item ? (item.remediation_action || '') : ''}" placeholder="Công việc cần làm để sửa..." style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 13px; box-sizing: border-box;">
                         </div>
 
                         <div>
                             <label style="display: block; font-size: 12px; font-weight: 700; color: #7c3aed; margin-bottom: 6px;">🎓 Hướng Đào Tạo</label>
-                            <input id="formTraining" type="text" value="${item ? (item.training_direction || '') : ''}" placeholder="VD: Đào tạo lại cách đo size áo..." style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 13px; box-sizing: border-box;">
+                            <input id="formTraining" type="text" value="${item ? (item.training_direction || '') : ''}" placeholder="Cần đào tạo thêm gì..." style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 13px; box-sizing: border-box;">
                         </div>
 
                         <div style="grid-column: span 2;">
                             <label style="display: block; font-size: 12px; font-weight: 700; color: #059669; margin-bottom: 6px;">🤝 Cam Kết Của Quản Lý</label>
-                            <input id="formManagerCommit" type="text" value="${item ? (item.manager_commitment || '') : ''}" placeholder="VD: Hỗ trợ 1-1 trong 1 tuần..." style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 13px; box-sizing: border-box;">
+                            <input id="formManagerCommit" type="text" value="${item ? (item.manager_commitment || '') : ''}" placeholder="Hỗ trợ của quản lý..." style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 13px; box-sizing: border-box;">
                         </div>
 
                         <!-- Section: Nhân Sự Ý Kiến & Cam Kết (Pink) -->
@@ -368,26 +528,18 @@
                             </div>
                         </div>
 
-                        <!-- Section: Báo Cáo Tiến Độ & Tỷ Lệ (Teal) -->
+                        <!-- Section: Báo Cáo Tiến Độ (Teal) -->
                         <div style="grid-column: span 2; background: #f0f9ff; padding: 16px; border-radius: 12px; border: 1px solid #bae6fd;">
-                            <h4 style="margin: 0 0 12px 0; font-size: 13px; font-weight: 800; color: #0284c7;">📊 Báo Cáo Tiến Độ & Tỷ Lệ Khắc Phục</h4>
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                            <h4 style="margin: 0 0 12px 0; font-size: 13px; font-weight: 800; color: #0284c7;">📊 Báo Cáo Tiến Độ Realtime</h4>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                                 <div>
-                                    <label style="display: block; font-size: 11px; font-weight: 700; color: #0369a1; margin-bottom: 4px;">Quản Lý Báo Cáo (Xử lý như thế nào?)</label>
+                                    <label style="display: block; font-size: 11px; font-weight: 700; color: #0369a1; margin-bottom: 4px;">Quản Lý Báo Cáo (Xử lý thế nào?)</label>
                                     <input id="formManagerReport" type="text" value="${item ? (item.manager_report || '') : ''}" placeholder="Cập nhật từ quản lý..." style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #38bdf8; font-size: 12px; box-sizing: border-box;">
                                 </div>
                                 <div>
                                     <label style="display: block; font-size: 11px; font-weight: 700; color: #0369a1; margin-bottom: 4px;">Nhân Sự Báo Cáo</label>
-                                    <input id="formEmpReport" type="text" value="${item ? (item.employee_report || '') : ''}" placeholder="Báo cáo kết quả của NV..." style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #38bdf8; font-size: 12px; box-sizing: border-box;">
+                                    <input id="formEmpReport" type="text" value="${item ? (item.employee_report || '') : ''}" placeholder="Báo cáo kết quả từ nhân sự..." style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #38bdf8; font-size: 12px; box-sizing: border-box;">
                                 </div>
-                            </div>
-
-                            <div>
-                                <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; color: #0369a1; margin-bottom: 4px;">
-                                    <span>Tỷ Lệ Khắc Phục (% Complete)</span>
-                                    <span id="formRateLabel" style="font-weight: 900; color: #0284c7; font-size: 14px;">${item ? (item.completion_rate || 0) : 0}%</span>
-                                </div>
-                                <input id="formCompletionRate" type="range" min="0" max="100" value="${item ? (item.completion_rate || 0) : 0}" oninput="document.getElementById('formRateLabel').innerText = this.value + '%'" style="width: 100%; accent-color: #0284c7; cursor: pointer;">
                             </div>
                         </div>
                     </div>
@@ -452,8 +604,7 @@
             resolution_deadline: document.getElementById('formResolutionDeadline').value,
             employee_commitment: document.getElementById('formEmpCommitment').value.trim(),
             manager_report: document.getElementById('formManagerReport').value.trim(),
-            employee_report: document.getElementById('formEmpReport').value.trim(),
-            completion_rate: Number(document.getElementById('formCompletionRate').value) || 0
+            employee_report: document.getElementById('formEmpReport').value.trim()
         };
 
         try {
@@ -482,9 +633,9 @@
 
         modalContainer.innerHTML = `
             <div style="position: fixed; inset: 0; background: rgba(15,23,42,0.6); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 20px;">
-                <div style="background: white; border-radius: 18px; width: 100%; max-width: 600px; box-shadow: 0 20px 40px rgba(0,0,0,0.2);">
+                <div style="background: white; border-radius: 18px; width: 100%; max-width: 550px; box-shadow: 0 20px 40px rgba(0,0,0,0.2);">
                     <div style="padding: 18px 24px; background: linear-gradient(135deg, #0284c7, #0369a1); border-radius: 18px 18px 0 0; color: white; display: flex; justify-content: space-between; align-items: center;">
-                        <h3 style="margin: 0; font-size: 16px; font-weight: 800;">📊 Cập Nhật Tiến Độ & Báo Cáo — ${item.employee_name}</h3>
+                        <h3 style="margin: 0; font-size: 16px; font-weight: 800;">📊 Cập Nhật Báo Cáo — ${item.employee_name}</h3>
                         <button onclick="window._eeCloseModal()" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 30px; height: 30px; border-radius: 8px; cursor: pointer;">✕</button>
                     </div>
 
@@ -497,14 +648,6 @@
                         <div>
                             <label style="display: block; font-size: 12px; font-weight: 700; color: #0369a1; margin-bottom: 6px;">👷 Nhân Sự Báo Cáo</label>
                             <textarea id="rptEmpReport" rows="3" placeholder="Ghi nhận báo cáo từ Nhân sự..." style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 13px; box-sizing: border-box;">${item.employee_report || ''}</textarea>
-                        </div>
-
-                        <div>
-                            <div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: 700; color: #0369a1; margin-bottom: 6px;">
-                                <span>Tỷ Lệ Khắc Phục (% Completion)</span>
-                                <span id="rptRateVal" style="font-weight: 900; color: #0284c7; font-size: 16px;">${item.completion_rate || 0}%</span>
-                            </div>
-                            <input id="rptRateSlider" type="range" min="0" max="100" value="${item.completion_rate || 0}" oninput="document.getElementById('rptRateVal').innerText = this.value + '%'" style="width: 100%; accent-color: #0284c7; cursor: pointer;">
                         </div>
                     </div>
 
@@ -520,20 +663,18 @@
     window._eeSaveReport = async function(id) {
         var mReport = document.getElementById('rptManagerReport').value.trim();
         var eReport = document.getElementById('rptEmpReport').value.trim();
-        var rate = Number(document.getElementById('rptRateSlider').value) || 0;
 
         try {
             await apiCall('/api/employee-evaluations/' + id, 'PUT', {
                 manager_report: mReport,
-                employee_report: eReport,
-                completion_rate: rate
+                employee_report: eReport
             });
-            showToast('✅ Đã cập nhật tiến độ báo cáo!', 'success');
+            showToast('✅ Đã cập nhật báo cáo!', 'success');
             window._eeCloseModal();
             _eeLoadData();
         } catch(err) {
             console.error('Error saving report:', err);
-            showToast('❌ Có lỗi khi lưu báo cáo tiến độ', 'error');
+            showToast('❌ Có lỗi khi lưu báo cáo', 'error');
         }
     };
 
