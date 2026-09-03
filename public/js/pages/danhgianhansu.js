@@ -1549,7 +1549,7 @@
         `;
 
         // Populate employee dropdown based on department selection
-        window._eeOnDeptChange(item ? item.employee_name : null);
+        window._eeOnDeptChange(item ? item.employee_name : null, item ? item.improvement_errors : null);
 
         if (targetSection === 2) {
             setTimeout(function() {
@@ -1630,7 +1630,7 @@
         return false;
     }
 
-    window._eeOnDeptChange = function(selectedEmpName) {
+    window._eeOnDeptChange = function(selectedEmpName, currentItemText) {
         var deptSel = document.getElementById('formDepartment');
         var empSel = document.getElementById('formEmpSelect');
         if (!deptSel || !empSel) return;
@@ -1662,11 +1662,11 @@
         window._eeCheckSectionLocks();
 
         if (selectedEmpName) {
-            window._eeOnEmpSelectChange();
+            window._eeOnEmpSelectChange(currentItemText);
         }
     };
 
-    window._eeOnEmpSelectChange = async function() {
+    window._eeOnEmpSelectChange = async function(currentItemText) {
         var empSel = document.getElementById('formEmpSelect');
         var exSel = document.getElementById('formExistingViolationSelect');
         var noticeBanner = document.getElementById('repeatNoticeBanner');
@@ -1688,6 +1688,7 @@
         exSel.disabled = false;
         exSel.innerHTML = '<option value="">-- Đang tải lịch sử lỗi / cải thiện... --</option>';
 
+        var selectedIndex = -1;
         try {
             var res = await apiCall('/api/employee-evaluations/employee-history?employee_name=' + encodeURIComponent(empName));
             var history = (res && res.history) ? res.history : [];
@@ -1697,24 +1698,35 @@
             var html = '<option value="">-- Chọn Loại Lỗi / Cần Cải Thiện --</option>';
             html += '<option value="__CREATE_NEW__">➕ Tạo Mới Lỗi / Cần Cải Thiện</option>';
 
+            var targetText = (currentItemText || (document.getElementById('formImprovementErrors') ? document.getElementById('formImprovementErrors').value : '')).trim().toLowerCase();
+
             if (history.length > 0) {
                 html += '<optgroup label="📋 Lỗi / Cần Cải Thiện Đã Có Của Nhân Sự">';
                 history.forEach(function(item, index) {
+                    var isMatch = Boolean(targetText && item.improvement_errors.trim().toLowerCase() === targetText);
+                    if (isMatch) selectedIndex = index;
                     var icon = (item.eval_type === 'Lỗi Vi Phạm') ? '⚠️' : '💡';
                     var label = `${icon} [${item.eval_type}] ${item.improvement_errors} (Đã lặp lại ${item.count} lần)`;
-                    html += `<option value="${index}">${label}</option>`;
+                    html += `<option value="${index}" ${isMatch ? 'selected' : ''}>${label}</option>`;
                 });
                 html += '</optgroup>';
             }
 
             exSel.innerHTML = html;
+
+            if (selectedIndex >= 0) {
+                exSel.value = String(selectedIndex);
+                window._eeOnExistingViolationChange();
+            }
         } catch(e) {
             console.error('Error fetching employee history:', e);
             exSel.innerHTML = '<option value="">-- Lỗi tải lịch sử --</option><option value="__CREATE_NEW__">➕ Tạo Mới Lỗi / Cần Cải Thiện</option>';
         }
 
-        if (noticeBanner) noticeBanner.style.display = 'none';
-        _eeResetEvalTypeAndErrorsLock(false);
+        if (selectedIndex < 0) {
+            if (noticeBanner) noticeBanner.style.display = 'none';
+            _eeResetEvalTypeAndErrorsLock(false);
+        }
     };
 
     window._eeOnExistingViolationChange = function() {
