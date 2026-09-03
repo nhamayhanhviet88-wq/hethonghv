@@ -17,8 +17,14 @@ function formatVND(val) {
 async function renderKpikdoanhPage(container) {
     window.renderKpikdoanhPage = renderKpikdoanhPage;
     if (!_kpi.month) {
-        const now = vnNow();
-        _kpi.month = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+        var urlParams = new URLSearchParams(window.location.search);
+        var mParam = urlParams.get('month');
+        if (mParam && /^\d{4}-\d{2}$/.test(mParam)) {
+            _kpi.month = mParam;
+        } else {
+            var now = vnNow();
+            _kpi.month = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+        }
     }
     container.innerHTML = `
         <style>
@@ -154,12 +160,12 @@ async function renderKpikdoanhPage(container) {
             .kpi-mc-badge-team{font-size:14px;padding:6px 16px;font-weight:800;min-width:130px;background:linear-gradient(135deg,#7c3aed,#a855f7,#c084fc,#a855f7,#7c3aed);background-size:300% 100%;color:#fff;border-radius:22px;box-shadow:0 2px 10px rgba(124,58,237,.35);animation:kpiTeamShimmer 3s ease-in-out infinite;text-shadow:0 1px 2px rgba(0,0,0,.15)}
             @keyframes kpiTeamShimmer{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
             .kpi-mc-modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
-            .kpi-mc-modal{background:#fff;border-radius:20px;width:600px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,.25);animation:kpiMcSlideUp .3s ease}
+            .kpi-mc-modal{background:#fff;border-radius:20px;width:600px;max-width:95vw;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 25px 60px rgba(0,0,0,.25);animation:kpiMcSlideUp .3s ease;overflow:hidden}
             @keyframes kpiMcSlideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
-            .kpi-mc-modal-head{padding:20px 24px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between}
+            .kpi-mc-modal-head{padding:20px 24px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
             .kpi-mc-modal-head h3{font-size:16px;font-weight:800;color:#1e293b;margin:0}
-            .kpi-mc-modal-body{padding:20px 24px}
-            .kpi-mc-modal-foot{padding:16px 24px;border-top:1px solid #e5e7eb;display:flex;justify-content:flex-end;gap:10px}
+            .kpi-mc-modal-body{padding:20px 24px;flex:1;overflow-y:auto}
+            .kpi-mc-modal-foot{padding:16px 24px;border-top:1px solid #e5e7eb;display:flex;justify-content:flex-end;gap:10px;flex-shrink:0}
             .kpi-mc-input{width:100%;padding:10px 14px;border:2px solid #e5e7eb;border-radius:10px;font-size:13px;transition:border .2s;outline:none;font-family:inherit}
             .kpi-mc-input:focus{border-color:#6366f1}
             .kpi-mc-item{padding:14px;border:1px solid #e5e7eb;border-radius:12px;margin-bottom:10px;background:#fafafa}
@@ -198,12 +204,15 @@ async function renderKpikdoanhPage(container) {
             @media(max-width:768px){.kpi-od-modal{width:100%;max-width:100%;max-height:100%;border-radius:0}}
         </style>
         <div class="kpi-wrap" id="kpiWrap">
-            <div class="kpi-topbar">
-                <div class="kpi-nav">
-                    <button class="kpi-nav-btn" onclick="kpiNavMonth(-1)">‹</button>
-                    <div class="kpi-month-label" id="kpiMonthLabel" onclick="kpiOpenPicker()" title="Chọn tháng">...</div>
-                    <input type="month" id="kpiMonthInput" onchange="kpiPickMonth(this.value)">
-                    <button class="kpi-nav-btn" onclick="kpiNavMonth(1)">›</button>
+            <div class="kpi-topbar" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                    <div class="kpi-nav">
+                        <button class="kpi-nav-btn" onclick="kpiNavMonth(-1)">‹</button>
+                        <div class="kpi-month-label" id="kpiMonthLabel" onclick="kpiOpenPicker()" title="Chọn tháng">...</div>
+                        <input type="month" id="kpiMonthInput" onchange="kpiPickMonth(this.value)">
+                        <button class="kpi-nav-btn" onclick="kpiNavMonth(1)">›</button>
+                    </div>
+                    <div id="kpiKdYoYButtonsContainer" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"></div>
                 </div>
                 ${(typeof currentUser!=='undefined'&&currentUser&&currentUser.role==='giam_doc')?'<button class="kpi-set-btn" onclick="kpiKdOpenTargetModal()">🎯 Đặt KPI Tháng</button>':''}
             </div>
@@ -550,10 +559,25 @@ function _kpiFilterMainDataTP(mainData) {
     });
 }
 
+function kpiKdRenderYoYButtons(year, mo) {
+    const container = document.getElementById('kpiKdYoYButtonsContainer');
+    if (!container) return;
+    let html = '';
+    for (let py = year - 1; py >= 2025; py--) {
+        const mStr = `${py}-${String(mo).padStart(2, '0')}`;
+        html += `<button type="button" onclick="_handleYoYClick(event, '${mStr}', kpiPickMonth)" onauxclick="_handleYoYClick(event, '${mStr}', kpiPickMonth)" onmousedown="if(event.button===1){event.preventDefault();_handleYoYClick(event, '${mStr}', kpiPickMonth);}" title="💡 Bấm chuột trái: Xem tại trang này | Bấm chuột giữa: Mở Tab mới" style="padding:6px 12px;border-radius:10px;border:1.5px solid #818cf8;background:linear-gradient(135deg,#e0e7ff,#eef2ff);color:#3730a3;font-size:12px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:4px;box-shadow:0 1px 3px rgba(0,0,0,0.05);transition:all 0.15s ease" onmouseover="this.style.background='#c7d2fe';this.style.transform='translateY(-1px)'" onmouseout="this.style.background='linear-gradient(135deg,#e0e7ff,#eef2ff)';this.style.transform='none'">📊 T${mo}/${py}</button>`;
+    }
+    container.innerHTML = html;
+}
+
 async function kpiLoadAll() {
     var lbl = document.getElementById('kpiMonthLabel');
     var content = document.getElementById('kpiContent');
-    if (lbl) { var p=_kpi.month.split('-').map(Number); lbl.textContent = 'Tháng ' + p[1] + '/' + p[0]; }
+    if (lbl) { 
+        var p = _kpi.month.split('-').map(Number); 
+        lbl.textContent = 'Tháng ' + p[1] + '/' + p[0]; 
+        kpiKdRenderYoYButtons(p[0], p[1]);
+    }
     if (content) content.innerHTML = '<div style="text-align:center;padding:60px;color:#9ca3af">⏳ Đang tải...</div>';
 
     var kpiMonthParts = _kpi.month.split('-').map(Number);
@@ -679,6 +703,12 @@ function kpiRenderSummary(data) {
             <div class="kpi-sum-box actual">
                 <div class="kpi-sum-val" style="color:#92400e">${kpiFmt(s.actual)}</div>
                 <div class="kpi-sum-lbl">THỰC THU</div>
+                <div class="kpi-sum-detail" style="margin-top:4px">
+                    <div class="kpi-sum-detail-row">
+                        <span class="kpi-sum-detail-label" style="color:#92400e;font-weight:700">CÙNG KỲ (${m.prev_year_label || 'N-1'}):</span>
+                        <span class="kpi-sum-detail-val" style="color:#92400e;font-weight:800">${kpiFmt(s.prev_year_actual || 0)}</span>
+                    </div>
+                </div>
             </div>
             <div class="kpi-sum-box m1">
                 <div class="kpi-sum-val" style="color:#166534">${kpiFmtFull(s.target_1)} đ</div>
@@ -1686,7 +1716,9 @@ async function kpiLoadMeetingCommit() {
         try { var permRes = await apiCall('/api/meeting-commitments/permissions'); _mcKdPerms = permRes.permissions || []; } catch(e) { _mcKdPerms = []; }
         // Set active session to latest (last in array since sorted ASC)
         if (_mcSessions.length > 0) {
-            _mcSession = _mcSessions[_mcSessions.length - 1];
+            var curId = _mcSession ? _mcSession.id : null;
+            var foundSess = curId ? _mcSessions.find(function(s) { return s.id === curId; }) : null;
+            _mcSession = foundSess || _mcSessions[_mcSessions.length - 1];
             _mcCommitments = _mcAllCommitments.filter(function(c) { return c.session_id === _mcSession.id; });
         } else {
             _mcSession = null;
@@ -1946,6 +1978,9 @@ function kpiRenderMeetingCommit(el) {
             var sess = _mcSessions[si];
             var stt = si + 1;
             var isNewest = (si === _mcSessions.length - 1);
+            var isOpen = (_mcSession && _mcSession.id === sess.id) || (!_mcSession && isNewest);
+            var iconText = isOpen ? '▼' : '▶';
+            var bodyStyle = isOpen ? 'display:block' : 'display:none';
             var dateParts = sess.meeting_date.split('T')[0].split('-');
             var sessDateStr = dateParts[2] + '/' + dateParts[1] + '/' + dateParts[0];
             var sessCommits = _mcAllCommitments.filter(function(c) { return c.session_id === sess.id; });
@@ -1959,7 +1994,7 @@ function kpiRenderMeetingCommit(el) {
             // Session header (clickable)
             h += '<div class="kpi-mc-session-head" onclick="mcToggleSession(' + sess.id + ')" style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;background:' + pal.headerBg + ';border-bottom:1px solid ' + pal.border + '">';
             h += '<div style="display:flex;align-items:center;gap:10px">';
-            h += '<span id="mcSessIcon_' + sess.id + '" style="font-size:14px;transition:transform .3s;color:' + pal.icon + '">▶</span>';
+            h += '<span id="mcSessIcon_' + sess.id + '" style="font-size:14px;transition:transform .3s;color:' + pal.icon + '">' + iconText + '</span>';
             h += '<span style="font-size:14px;font-weight:800;color:' + pal.text + '">📋 Cuộc Họp Thứ ' + stt + '</span>';
             h += '<span style="font-size:12px;font-weight:500;color:' + pal.text + ';opacity:.7">— ' + sess.title + ' (' + sessDateStr + ')</span>';
             h += '</div>';
@@ -1989,10 +2024,20 @@ function kpiRenderMeetingCommit(el) {
                 }
             }
             if (isNewest) h += '<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:' + pal.newestBg + ';color:#fff;font-weight:700">Mới nhất</span>';
+            var todayStr = new Date().toISOString().split('T')[0];
+            var sessEndDate = sess.end_date ? sess.end_date.split('T')[0] : (sess.meeting_date ? sess.meeting_date.split('T')[0] : '');
+            var isSessOpen = sessEndDate >= todayStr;
+            if (isGD || myRole === 'quan_ly_cap_cao') {
+                if (isSessOpen) {
+                    h += '<button class="kpi-mc-btn" style="background:#fff7ed;color:#c2410c;border:1px solid #ffedd5;font-weight:700;font-size:11px;padding:3px 10px;border-radius:8px;cursor:pointer;margin-left:6px" onclick="event.stopPropagation();mcCloseSession(' + sess.id + ',\'' + sess.title.replace(/'/g, "\\'") + '\')">🔒 Đóng Cuộc Họp</button>';
+                } else {
+                    h += '<span style="font-size:11px;font-weight:700;color:#6b7280;background:#f3f4f6;padding:3px 10px;border-radius:8px;border:1px solid #e5e7eb;margin-left:6px">🔒 Đã Đóng</span>';
+                }
+            }
             h += '</div></div>';
 
             // Session body (expandable)
-            h += '<div id="mcSessBody_' + sess.id + '" style="display:none">';
+            h += '<div id="mcSessBody_' + sess.id + '" style="' + bodyStyle + '">';
 
             // Render teams for this session
             var myRole = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.role : '';
@@ -2404,7 +2449,13 @@ window.mcSwitchSession = function(sessionId) {
 };
 
 // ===== TEAM EDIT =====
-window.mcEditTeam = async function(deptId, teamName) {
+window.mcEditTeam = async function(deptId, teamName, pageKey) {
+    if (!pageKey) {
+        var path = window.location.pathname;
+        if (path.indexOf('kpimarketing') >= 0) pageKey = 'kpimarketing_team';
+        else if (path.indexOf('kpisale') >= 0) pageKey = 'kpisale_team';
+        else pageKey = 'kpikdoanh_team';
+    }
     var existing = _mcCommitments.filter(function(c) { return c.team_dept_id === deptId; });
     var items;
     if (existing.length > 0) {
@@ -2415,7 +2466,7 @@ window.mcEditTeam = async function(deptId, teamName) {
     } else {
         // Try to load team templates
         try {
-            var tplData = await apiCall('/api/meeting-commitments/templates?page=kpikdoanh_team');
+            var tplData = await apiCall('/api/meeting-commitments/templates?page=' + pageKey);
             if (tplData.templates && tplData.templates.length > 0) {
                 items = tplData.templates.map(function(t) {
                     return { content: t.question_content, target_revenue: 0, isTemplate: true, hasRevenue: t.has_revenue_target };
@@ -2466,7 +2517,15 @@ window.mcSaveTeamCommitments = async function(deptId) {
     try {
         await apiCall('/api/meeting-commitments', 'POST', { session_id: _mcSession.id, department_id: deptId, items: items });
         document.querySelector('.kpi-mc-modal-overlay').remove();
-        kpiLoadMeetingCommit();
+        showToast('✅ Đã lưu cam kết thành công!', 'success');
+        var path = window.location.pathname;
+        if (path.indexOf('kpimarketing') >= 0) {
+            if (typeof loadKpiMktMeetingCommit === 'function') loadKpiMktMeetingCommit();
+        } else if (path.indexOf('kpisale') >= 0) {
+            if (typeof loadKpiSaleData === 'function') loadKpiSaleData();
+        } else {
+            if (typeof kpiLoadMeetingCommit === 'function') kpiLoadMeetingCommit();
+        }
     } catch(e) { alert('Lỗi: ' + (e.message || '')); }
 };
 
@@ -2574,89 +2633,97 @@ async function _mcUpdateAutoTitle(dateStr) {
 }
 
 // Create session popup
+// Create session popup (P.Kinh Doanh creates its own meeting directly)
 window.mcCreateSession = async function() {
     var today = vnDateStr();
     var mcParts = _kpi.month.split('-').map(Number);
     var selYear = mcParts[0], selMonth = mcParts[1];
 
-    var sessions = [];
-    try {
-        var res = await apiCall('/api/meeting-commitments/sessions?month=' + selMonth + '&year=' + selYear);
-        var rawSessions = (res && res.sessions) ? res.sessions : [];
-        sessions = rawSessions.filter(function(s) {
+    var activeSession = null;
+    if (_mcSessions) {
+        activeSession = _mcSessions.find(function(s) {
             var sDate = s.start_date ? s.start_date.split('T')[0] : (s.meeting_date ? s.meeting_date.split('T')[0] : '');
             var eDate = s.end_date ? s.end_date.split('T')[0] : '';
             if (!eDate && sDate) {
-                var d = new Date(sDate);
-                d.setDate(d.getDate() + 7);
-                eDate = d.toISOString().split('T')[0];
+                var ed = new Date(sDate);
+                ed.setDate(ed.getDate() + 7);
+                eDate = ed.toISOString().split('T')[0];
             }
             return (!sDate || today >= sDate) && (!eDate || today <= eDate);
         });
-    } catch(e) {}
+    }
+
+    var defaultEnd = new Date();
+    defaultEnd.setDate(defaultEnd.getDate() + 7);
+    var defaultEndStr = defaultEnd.toISOString().split('T')[0];
+    var sessionNo = (_mcSessions ? _mcSessions.length : 0) + 1;
+    var defaultTitle = 'Cuộc Họp Thứ ' + sessionNo + ' — P.Kinh Doanh - ' + new Date().toLocaleDateString('vi-VN');
 
     var overlay = document.createElement('div');
+    overlay.id = 'mcKdCreateOverlay';
     overlay.className = 'kpi-mc-modal-overlay';
     overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
 
-    var bodyHtml = '';
+    var h = '<div class="kpi-mc-modal" style="width:480px;max-width:95vw">';
+    h += '<div class="kpi-mc-modal-head" style="background:linear-gradient(135deg,#1e293b,#312e81);color:#fff">';
+    h += '<h3 style="margin:0;font-size:16px;font-weight:800;color:#ffffff">➕ Tạo Cuộc Họp P.Kinh Doanh</h3>';
+    h += '<button onclick="document.getElementById(\'mcKdCreateOverlay\').remove()" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer">✕</button>';
+    h += '</div>';
+    h += '<div class="kpi-mc-modal-body" style="padding:20px">';
 
-    if (sessions.length === 0) {
-        bodyHtml = '<div style="padding:20px;text-align:center;color:#6b7280">'
-            + '<div style="font-size:36px;margin-bottom:8px">🔒</div>'
-            + '<div style="font-size:14px;font-weight:700;color:#1e293b">Không có cuộc họp nào đang mở trong Tháng ' + selMonth + '/' + selYear + '</div>'
-            + '<div style="font-size:12px;color:#64748b;margin-top:6px">Các cuộc họp đã quá thời gian đóng (hoặc chưa được tạo). Vui lòng tạo/gia hạn tại mục <b>Cam Kết Cuộc Họp</b>.</div>'
-            + '</div>';
-    } else {
-        bodyHtml += '<div style="margin-bottom:14px"><label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:6px">Chọn Cuộc Họp Trong Tháng (Đang Mở)</label>';
-        bodyHtml += '<select class="kpi-mc-input" id="mcSessionSelect" onchange="_mcOnSelectSession(this)" style="font-weight:700">';
-        for (var i = 0; i < sessions.length; i++) {
-            var s = sessions[i];
-            bodyHtml += '<option value="' + s.id + '" data-title="' + s.title + '" data-date="' + (s.meeting_date ? s.meeting_date.split('T')[0] : today) + '">' + s.title + '</option>';
-        }
-        bodyHtml += '</select></div>';
-
-        var initialTitle = sessions[0].title;
-        var initialDate = sessions[0].meeting_date ? sessions[0].meeting_date.split('T')[0] : today;
-
-        bodyHtml += '<div style="margin-bottom:14px"><label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:6px">Tiêu đề cuộc họp (Khóa cố định)</label>';
-        bodyHtml += '<input class="kpi-mc-input" id="mcSessionTitle" value="' + initialTitle + '" readonly style="background:#f1f5f9;cursor:not-allowed;font-weight:700;color:#1e293b"></div>';
-
-        bodyHtml += '<div><label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:6px">Ngày họp</label>';
-        bodyHtml += '<input class="kpi-mc-input" type="date" id="mcSessionDate" value="' + initialDate + '" readonly style="background:#f1f5f9;cursor:not-allowed"></div>';
+    if (activeSession) {
+        h += '<div style="margin-bottom:14px;padding:14px;background:#fef2f2;border:1.5px solid #fca5a5;border-radius:12px;color:#991b1b;font-size:12px;font-weight:700;line-height:1.5">';
+        h += '⚠️ <b>CẢNH BÁO TẠO CUỘC HỌP</b><br>';
+        h += 'Cuộc họp <b>"' + activeSession.title + '"</b> hiện tại chưa được đóng.<br>';
+        h += '<span style="font-weight:500;color:#7f1d1d">Vui lòng bấm nút <b>"🔒 Đóng Cuộc Họp"</b> tại cuộc họp hiện tại trước khi tạo cuộc họp mới!</span>';
+        h += '</div>';
     }
 
-    overlay.innerHTML = '<div class="kpi-mc-modal">'
-        + '<div class="kpi-mc-modal-head"><h3>📋 Chọn Cuộc Họp P.Kinh Doanh</h3><button onclick="this.closest(\'.kpi-mc-modal-overlay\').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280">✕</button></div>'
-        + '<div class="kpi-mc-modal-body">' + bodyHtml + '</div>'
-        + '<div class="kpi-mc-modal-foot">'
-        + '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="this.closest(\'.kpi-mc-modal-overlay\').remove()">Hủy</button>'
-        + (sessions.length > 0 ? '<button class="kpi-mc-btn kpi-mc-btn-primary" onclick="mcSaveSession()">Xác Nhận</button>' : '')
-        + '</div></div>';
+    h += '<div style="margin-bottom:14px"><label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:6px">Tiêu đề cuộc họp</label>';
+    h += '<input class="kpi-mc-input" id="mcKdNewTitle" value="' + (activeSession ? activeSession.title : defaultTitle) + '" ' + (activeSession ? 'readonly style="background:#f1f5f9;cursor:not-allowed"' : '') + ' style="width:100%;font-weight:700;color:#1e293b;padding:10px;border:1px solid #cbd5e1;border-radius:8px"></div>';
+
+    h += '<div style="margin-bottom:14px"><label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:6px">🚀 Thời gian mở (Từ ngày)</label>';
+    h += '<input class="kpi-mc-input" type="date" id="mcKdNewDate" value="' + today + '" ' + (activeSession ? 'disabled style="background:#f1f5f9"' : '') + ' style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px"></div>';
+    h += '</div>';
+
+    h += '<div class="kpi-mc-modal-foot" style="padding:14px 20px;border-top:1px solid #e5e7eb;display:flex;justify-content:flex-end;gap:10px">';
+    h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="document.getElementById(\'mcKdCreateOverlay\').remove()">Hủy</button>';
+    if (!activeSession) {
+        h += '<button class="kpi-mc-btn kpi-mc-btn-primary" onclick="mcSaveKdNewSession()" style="background:linear-gradient(135deg,#4338ca,#6366f1);color:#fff;font-weight:700;padding:8px 20px">Tạo Cuộc Họp</button>';
+    }
+    h += '</div></div>';
+
+    overlay.innerHTML = h;
     document.body.appendChild(overlay);
 };
 
-window._mcOnSelectSession = function(sel) {
-    var opt = sel.options[sel.selectedIndex];
-    var title = opt ? opt.getAttribute('data-title') : '';
-    var date = opt ? opt.getAttribute('data-date') : '';
-    var titleEl = document.getElementById('mcSessionTitle');
-    var dateEl = document.getElementById('mcSessionDate');
-    if (titleEl && title) titleEl.value = title;
-    if (dateEl && date) dateEl.value = date;
-};
+window.mcSaveKdNewSession = async function() {
+    var titleEl = document.getElementById('mcKdNewTitle');
+    var dateEl = document.getElementById('mcKdNewDate');
+    var endDateEl = document.getElementById('mcKdNewEndDate');
+    var title = titleEl ? titleEl.value.trim() : '';
+    var sDate = dateEl ? dateEl.value : '';
+    var eDate = endDateEl ? endDateEl.value : '';
+    if (!title) return alert('Vui lòng nhập tiêu đề cuộc họp');
+    if (!sDate || !eDate) return alert('Vui lòng chọn thời gian họp');
 
-window.mcSaveSession = async function() {
-    var selEl = document.getElementById('mcSessionSelect');
-    if (!selEl) return;
-    var sessionId = selEl.value;
     try {
-        await apiCall('/api/meeting-commitments/sessions/' + sessionId + '/departments', 'POST', { department_id: 1 });
-    } catch(e) {}
-    showToast('✅ Đã chọn cuộc họp thành công!', 'success');
-    var overlay = document.querySelector('.kpi-mc-modal-overlay');
-    if (overlay) overlay.remove();
-    kpiLoadMeetingCommit();
+        var res = await apiCall('/api/meeting-commitments/sessions', 'POST', {
+            title: title,
+            meeting_date: sDate,
+            start_date: sDate,
+            end_date: eDate,
+            source: 'kpikdoanh'
+        });
+        if (res.error) return alert(res.error);
+        if (res.id) {
+            await apiCall('/api/meeting-commitments/sessions/' + res.id + '/departments', 'POST', { department_id: 1 });
+        }
+        var overlay = document.getElementById('mcKdCreateOverlay');
+        if (overlay) overlay.remove();
+        showToast('✅ Tạo cuộc họp P.Kinh Doanh thành công!', 'success');
+        if (typeof kpiLoadMeetingCommit === 'function') kpiLoadMeetingCommit();
+    } catch(e) { alert('Lỗi tạo cuộc họp: ' + (e.message || e)); }
 };
 
 // Parse combined content (❓ question \n ✅ answer) into { question, answer }
@@ -2687,7 +2754,13 @@ function mcParseContent(content) {
 }
 
 // Edit/Add commitments for a user — auto-fill from templates if no existing commitments
-window.mcEditUser = async function(userId, userName) {
+window.mcEditUser = async function(userId, userName, pageKey) {
+    if (!pageKey) {
+        var path = window.location.pathname;
+        if (path.indexOf('kpimarketing') >= 0) pageKey = 'kpimarketing';
+        else if (path.indexOf('kpisale') >= 0) pageKey = 'kpisale';
+        else pageKey = 'kpikdoanh';
+    }
     var existing = _mcCommitments.filter(function(c) { return c.user_id === userId; });
     var items;
 
@@ -2699,7 +2772,7 @@ window.mcEditUser = async function(userId, userName) {
     } else {
         // Try to load templates for this page
         try {
-            var tplData = await apiCall('/api/meeting-commitments/templates?page=kpikdoanh');
+            var tplData = await apiCall('/api/meeting-commitments/templates?page=' + pageKey);
             if (tplData.templates && tplData.templates.length > 0) {
                 items = tplData.templates.map(function(t) {
                     return { content: t.question_content, target_revenue: 0, isTemplate: true, hasRevenue: t.has_revenue_target };
@@ -2888,7 +2961,15 @@ window.mcSaveCommitments = async function(userId) {
     try {
         await apiCall('/api/meeting-commitments', 'POST', { session_id: _mcSession.id, user_id: userId, items: items });
         document.querySelector('.kpi-mc-modal-overlay').remove();
-        kpiLoadMeetingCommit();
+        showToast('✅ Đã lưu cam kết thành công!', 'success');
+        var path = window.location.pathname;
+        if (path.indexOf('kpimarketing') >= 0) {
+            if (typeof loadKpiMktMeetingCommit === 'function') loadKpiMktMeetingCommit();
+        } else if (path.indexOf('kpisale') >= 0) {
+            if (typeof loadKpiSaleData === 'function') loadKpiSaleData();
+        } else {
+            if (typeof kpiLoadMeetingCommit === 'function') kpiLoadMeetingCommit();
+        }
     } catch(e) { alert('Lỗi: ' + (e.message || '')); }
 };
 
@@ -2897,9 +2978,14 @@ window.mcReviewUser = async function(userId, userName, readOnly) {
     var userCommits = _mcCommitments.filter(function(c) { return c.user_id === userId; });
     if (userCommits.length === 0) return alert('Chưa có cam kết');
 
+    var path = window.location.pathname;
+    var pageKey = 'kpikdoanh';
+    if (path.indexOf('kpimarketing') >= 0) pageKey = 'kpimarketing';
+    else if (path.indexOf('kpisale') >= 0) pageKey = 'kpisale';
+
     var tplList = [];
     try {
-        var tplRes = await apiCall('/api/meeting-commitments/templates?page_key=kpikdoanh');
+        var tplRes = await apiCall('/api/meeting-commitments/templates?page=' + pageKey);
         tplList = tplRes.templates || [];
     } catch(e) {}
 
@@ -2908,8 +2994,8 @@ window.mcReviewUser = async function(userId, userName, readOnly) {
     overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
 
     var modalTitle = readOnly ? '👁️ Xem Đánh Giá — ' + userName : '✅ Review — ' + userName;
-    var h = '<div class="kpi-mc-modal">'
-        + '<div class="kpi-mc-modal-head"><h3>' + modalTitle + '</h3><button onclick="this.closest(\'.kpi-mc-modal-overlay\').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280">✕</button></div>'
+    var h = '<div class="kpi-mc-modal" style="width:700px">'
+        + '<div class="kpi-mc-modal-head" style="background:linear-gradient(135deg,#1e293b,#312e81);color:#fff"><h3 style="margin:0;font-size:16px;font-weight:800;color:#ffffff">' + modalTitle + '</h3><button onclick="this.closest(\'.kpi-mc-modal-overlay\').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#ffffff">✕</button></div>'
         + '<div class="kpi-mc-modal-body">';
 
     for (var i = 0; i < userCommits.length; i++) {
@@ -2917,7 +3003,7 @@ window.mcReviewUser = async function(userId, userName, readOnly) {
         var parsed = mcParseContent(c.content);
         var qText = parsed.question || c.content;
         var matchedTpl = tplList.find(function(t) { return t.question_content === qText; }) || tplList[i];
-        var hasTarget = (c.target_revenue > 0) || !!(matchedTpl && matchedTpl.has_revenue_target);
+        var hasTarget = (c.target_revenue && Number(c.target_revenue) > 0);
 
         // Parse content: split ❓ question and ✅ answer (multi-line safe)
         var contentHtml = '';
@@ -3068,20 +3154,37 @@ window.mcSaveReview = async function() {
     }
     try {
         await apiCall('/api/meeting-commitments/batch-review', 'PUT', { reviews: reviews });
-        document.querySelector('.kpi-mc-modal-overlay').remove();
-        kpiLoadMeetingCommit();
+        var overlay = document.querySelector('.kpi-mc-modal-overlay');
+        if (overlay) overlay.remove();
         if (window.showToast) showToast('✅ Đã lưu Review cam kết thành công!', 'success');
+        var path = window.location.pathname;
+        if (path.indexOf('kpimarketing') >= 0) {
+            if (typeof loadKpiMktMeetingCommit === 'function') await loadKpiMktMeetingCommit();
+        } else if (path.indexOf('kpisale') >= 0) {
+            if (typeof loadKpiSaleData === 'function') await loadKpiSaleData();
+        } else {
+            if (typeof kpiLoadMeetingCommit === 'function') await kpiLoadMeetingCommit();
+        }
     } catch(e) { alert('Lỗi: ' + (e.message || '')); }
 };
 
 // ===== TEMPLATE SETUP MODAL (GĐ only) =====
 window.mcSetupTemplates = async function(pageKey, label) {
-    pageKey = pageKey || 'kpikdoanh';
+    if (!pageKey) {
+        var path = window.location.pathname;
+        if (path.indexOf('kpimarketing') >= 0) pageKey = (label === 'Team' ? 'kpimarketing_team' : 'kpimarketing');
+        else if (path.indexOf('kpisale') >= 0) pageKey = (label === 'Team' ? 'kpisale_team' : 'kpisale');
+        else pageKey = (label === 'Team' ? 'kpikdoanh_team' : 'kpikdoanh');
+    }
     label = label || 'Cá Nhân';
     window._mcTplPageKey = pageKey;
     var overlay = document.createElement('div');
     overlay.className = 'kpi-mc-modal-overlay';
     overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+
+    var pageLabel = 'KPI P.Kinh Doanh';
+    if (pageKey.indexOf('kpimarketing') >= 0) pageLabel = 'KPI Marketing Ads';
+    else if (pageKey.indexOf('kpisale') >= 0) pageLabel = 'KPI P.Sale';
 
     // Load existing templates
     var templates = [];
@@ -3090,8 +3193,8 @@ window.mcSetupTemplates = async function(pageKey, label) {
         templates = res.templates || [];
     } catch(e) {}
 
-    var h = '<div class="kpi-mc-modal" style="max-width:600px">'
-        + '<div class="kpi-mc-modal-head"><h3>⚙️ Câu Hỏi Mẫu ' + label + ' — KPI P.Kinh Doanh</h3><button onclick="this.closest(\'.kpi-mc-modal-overlay\').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280">✕</button></div>'
+    var h = '<div class="kpi-mc-modal" style="width:600px;max-width:95vw">'
+        + '<div class="kpi-mc-modal-head" style="background:linear-gradient(135deg,#1e293b,#312e81);color:#fff"><h3 style="margin:0;font-size:16px;font-weight:800;color:#ffffff">⚙️ Câu Hỏi Mẫu ' + label + ' — ' + pageLabel + '</h3><button onclick="this.closest(\'.kpi-mc-modal-overlay\').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#ffffff">✕</button></div>'
         + '<div class="kpi-mc-modal-body">'
         + '<div style="margin-bottom:12px;padding:10px;background:#f0fdf4;border-radius:8px;font-size:12px;color:#166534">💡 Các câu hỏi mẫu sẽ tự động điền vào form khi bấm "📝 Ghi" cho nhân viên chưa có cam kết.</div>'
         + '<div id="mcTplList">';
@@ -4598,6 +4701,8 @@ function kpiKdOpenTargetModal() {
     let tableRows = '';
     let globalStt = 1;
 
+    const prevYearLabel = _kpi.data?.month?.prev_year_label || (`T${mo}/${year - 1}`);
+
     teams.forEach(team => {
         const emps = team.employees || [];
         if (emps.length === 0) return;
@@ -4608,6 +4713,20 @@ function kpiKdOpenTargetModal() {
         const teamBonusM1Str = kpiKdFmtCurrencyStr(team.target_bonus_m1);
         const teamBonusM120Str = kpiKdFmtCurrencyStr(team.target_bonus_m120);
 
+        let teamPrevRevHtml = '';
+        if (team.prev_history && team.prev_history.length > 0) {
+            teamPrevRevHtml = team.prev_history.map((h, i) => {
+                const revStr = h.revenue > 0 ? (Number(h.revenue).toLocaleString('vi-VN') + 'đ') : '0đ';
+                if (i === 0) {
+                    return `<div style="font-weight:900;color:#15803d;font-size:11.5px">${h.label}: ${revStr}</div>`;
+                }
+                return `<div style="font-size:10px;color:#166534;font-weight:700;margin-top:1px">${h.label}: ${revStr}</div>`;
+            }).join('');
+        } else {
+            const teamPrevRevStr = team.prev_year_actual > 0 ? (Number(team.prev_year_actual).toLocaleString('vi-VN') + 'đ') : '0đ';
+            teamPrevRevHtml = `<div style="font-weight:900;color:#15803d;font-size:11.5px">${prevYearLabel}: ${teamPrevRevStr}</div>`;
+        }
+
         // Team Sub-Header Row with Inputs
         tableRows += `
             <tr class="kpi-target-modal-team-group" data-team-id="${team.dept_id}" style="background:linear-gradient(90deg,#dbeafe,#eff6ff);border-top:3px solid #2563eb;border-bottom:1.5px solid #bfdbfe">
@@ -4615,6 +4734,9 @@ function kpiKdOpenTargetModal() {
                 <td style="padding:7px 10px;font-weight:900;color:#1e3a8a;min-width:140px;font-size:12.5px">
                     <div>TEAM: ${escapeHtml(team.dept_name)}</div>
                     <div style="font-size:10.5px;color:#1d4ed8;font-weight:700">🏆 THƯỞNG TẬP THỂ</div>
+                </td>
+                <td style="padding:7px 10px;text-align:right;font-size:12px;width:140px">
+                    ${teamPrevRevHtml}
                 </td>
                 <td style="padding:7px 6px;width:160px">
                     <div style="display:flex;align-items:center;gap:4px">
@@ -4639,6 +4761,21 @@ function kpiKdOpenTargetModal() {
             const m120Val = emp.target ? (Math.round(emp.target * 1.2).toLocaleString('vi-VN') + 'đ') : '';
             const bonusM1Val = kpiKdFmtCurrencyStr(emp.target_bonus_m1);
             const bonusM120Val = kpiKdFmtCurrencyStr(emp.target_bonus_m120);
+
+            let empPrevRevHtml = '';
+            if (emp.prev_history && emp.prev_history.length > 0) {
+                empPrevRevHtml = emp.prev_history.map((h, i) => {
+                    const revStr = h.revenue > 0 ? (Number(h.revenue).toLocaleString('vi-VN') + 'đ') : '0đ';
+                    if (i === 0) {
+                        return `<div style="font-weight:800;color:#15803d;font-size:11.5px">${h.label}: ${revStr}</div>`;
+                    }
+                    return `<div style="font-size:10px;color:#475569;font-weight:600;margin-top:1px">${h.label}: ${revStr}</div>`;
+                }).join('');
+            } else {
+                const empPrevRevStr = emp.prev_year_actual > 0 ? (Number(emp.prev_year_actual).toLocaleString('vi-VN') + 'đ') : '0đ';
+                empPrevRevHtml = `<div style="font-weight:800;color:#15803d;font-size:11.5px">${empPrevRevStr}</div>`;
+            }
+
             const bgRow = globalStt % 2 === 0 ? '#f8fafc' : '#ffffff';
 
             tableRows += `
@@ -4655,6 +4792,9 @@ function kpiKdOpenTargetModal() {
                             </div>
                         </div>
                     </td>
+                    <td style="padding:7px 10px;text-align:right;font-size:12px;width:140px;background:rgba(240,253,244,0.5)">
+                        ${empPrevRevHtml}
+                    </td>
                     <td style="padding:7px 6px;width:160px">
                         <input type="text" class="kpi-input kpi-kd-target-input" data-user-id="${emp.user_id}" value="${m1Val}" oninput="kpiKdOnMoneyInput(this, ${emp.user_id}, true)" placeholder="" style="font-weight:800;color:#2563eb;text-align:right;padding:6px 6px;font-size:12px;width:100%;border:1.5px solid #cbd5e1;border-radius:8px;outline:none">
                     </td>
@@ -4669,7 +4809,73 @@ function kpiKdOpenTargetModal() {
         });
     });
 
+    const deptHist = _kpi.data?.summary?.prev_history || [];
+    const deptPrevHistoryBadges = deptHist.map((h, i) => {
+        const revStr = h.revenue > 0 ? (Number(h.revenue).toLocaleString('vi-VN') + 'đ') : '0đ';
+        const bg = i === 0 ? '#15803d' : '#166534';
+        return `<div style="background:${bg};color:#ffffff;padding:4px 10px;border-radius:8px;font-size:12px;font-weight:800;box-shadow:0 1px 2px rgba(0,0,0,0.1)">
+            <span style="opacity:0.9;font-weight:700">${h.label}:</span> ${revStr}
+        </div>`;
+    }).join('');
+
+    const deptSummaryBannerHtml = `
+        <div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1.5px solid #86efac;border-radius:10px;padding:9px 14px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 1px 3px rgba(0,0,0,0.03)">
+            <div style="display:flex;align-items:center;gap:8px">
+                <span style="font-size:18px">🏢</span>
+                <div>
+                    <div style="font-weight:900;color:#14532d;font-size:12.5px;letter-spacing:0.3px">LỊCH SỬ THỰC TẾ TOÀN PHÒNG KINH DOANH</div>
+                    <div style="font-size:10.5px;color:#166534;font-weight:600">Tổng doanh số đạt được của cả phòng ở cùng kỳ các năm trước</div>
+                </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+                ${deptPrevHistoryBadges}
+            </div>
+        </div>
+    `;
+
+    const deptTotalT1 = _kpi.data?.summary?.target_1 || teams.reduce((s, t) => s + (t.target_1 || 0), 0);
+    const deptTotalT1Str = deptTotalT1 > 0 ? (Number(deptTotalT1).toLocaleString('vi-VN') + 'đ') : '0đ';
+    const deptTotalT120Str = deptTotalT1 > 0 ? (Math.round(deptTotalT1 * 1.2).toLocaleString('vi-VN') + 'đ') : '0đ';
+
+    let deptStackedHistoryHtml = '';
+    if (deptHist.length > 0) {
+        deptStackedHistoryHtml = deptHist.map((h, i) => {
+            const revStr = h.revenue > 0 ? (Number(h.revenue).toLocaleString('vi-VN') + 'đ') : '0đ';
+            if (i === 0) {
+                return `<div style="font-weight:900;color:#86efac;font-size:12px">${h.label}: ${revStr}</div>`;
+            }
+            return `<div style="font-size:10.5px;color:#cbd5e1;font-weight:700;margin-top:1px">${h.label}: ${revStr}</div>`;
+        }).join('');
+    } else {
+        deptStackedHistoryHtml = `<div style="font-weight:900;color:#86efac;font-size:12px">${prevYearLabel}: 0đ</div>`;
+    }
+
+    const deptHeaderRow = `
+        <tr class="kpi-target-modal-dept-summary-row" style="background:linear-gradient(90deg,#0f172a,#1e293b);color:#ffffff;border-bottom:2.5px solid #3b82f6">
+            <td style="padding:8px 8px;text-align:center;font-weight:900;width:35px;font-size:13px">🏢</td>
+            <td style="padding:8px 10px;font-weight:900;color:#38bdf8;min-width:140px;font-size:13px">
+                <div>TỔNG TOÀN PHÒNG</div>
+                <div style="font-size:10px;color:#94a3b8;font-weight:600">Tổng hợp tất cả các Team</div>
+            </td>
+            <td style="padding:8px 10px;text-align:right;font-size:12px;width:140px;background:rgba(21,128,61,0.25)">
+                ${deptStackedHistoryHtml}
+            </td>
+            <td style="padding:8px 10px;text-align:right;font-weight:900;color:#60a5fa;font-size:13px;width:160px">
+                ${deptTotalT1Str}
+            </td>
+            <td style="padding:8px 10px;text-align:right;font-weight:900;color:#c084fc;font-size:13px;width:145px">
+                ${deptTotalT120Str}
+            </td>
+            <td style="padding:8px 10px;font-size:11px;color:#cbd5e1;font-weight:600;min-width:150px">
+                Toàn bộ nhân sự trong phòng
+            </td>
+        </tr>
+    `;
+
+    tableRows = deptHeaderRow + tableRows;
+
     let html = `
+        ${deptSummaryBannerHtml}
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
             ${filterTabsHtml}
         </div>
@@ -4679,6 +4885,7 @@ function kpiKdOpenTargetModal() {
                     <tr>
                         <th style="padding:9px 8px;text-align:center;width:35px;background:#f8fafc!important;color:#475569!important;font-weight:800">STT</th>
                         <th style="padding:9px 10px;text-align:left;min-width:140px;background:#f8fafc!important;color:#0f172a!important;font-weight:800">👤 Nhân Viên</th>
+                        <th style="padding:9px 10px;text-align:right;width:140px;background:#f0fdf4!important;color:#15803d!important;font-weight:800">📊 Lịch Sử Cùng Kỳ</th>
                         <th style="padding:9px 8px;text-align:center;width:160px;background:#eff6ff!important;color:#1d4ed8!important;font-weight:800">🎯 Target Mốc 1 (100%)</th>
                         <th style="padding:9px 8px;text-align:center;width:145px;background:#f3e8ff!important;color:#6b21a8!important;font-weight:800">🚀 Target Mốc 2 (120%)</th>
                         <th style="padding:9px 10px;text-align:left;min-width:150px;background:#f8fafc!important;color:#334155!important;font-weight:800">📝 Tiêu Chí Xét</th>
@@ -4993,10 +5200,10 @@ function kpiInitStaffTrendSection(kpiData) {
 
     // Populate Year Selector Options
     const yearSelect = document.getElementById('kpiYearSelect');
-    if (yearSelect && !yearSelect.hasChildNodes()) {
+    if (yearSelect && (!yearSelect.options || yearSelect.options.length === 0)) {
         const curY = (new Date()).getFullYear();
         let yHtml = '';
-        for (let y = curY; y >= curY - 2; y--) {
+        for (let y = curY; y >= 2025; y--) {
             yHtml += `<option value="${y}">Năm ${y}</option>`;
         }
         yearSelect.innerHTML = yHtml;

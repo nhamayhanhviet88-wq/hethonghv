@@ -8826,3 +8826,27 @@ function _gtBuildPeriodOptions(periodType) {
     }
     return html;
 }
+
+// Global Middle-Click (Wheel Click) Support for New Tab Navigation
+document.addEventListener('auxclick', function(e) {
+    if (e.button === 1) {
+        const link = e.target.closest('a[data-page], .nav-item[data-page], [data-page]');
+        if (link) {
+            e.preventDefault();
+            e.stopPropagation();
+            const href = link.getAttribute('href') || ('/' + link.getAttribute('data-page'));
+            if (href) {
+                window.open(href, '_blank');
+            }
+        }
+    }
+}, true);
+
+document.addEventListener('mousedown', function(e) {
+    if (e.button === 1) {
+        const link = e.target.closest('a[data-page], .nav-item[data-page], [data-page]');
+        if (link) {
+            e.preventDefault();
+        }
+    }
+}, true);

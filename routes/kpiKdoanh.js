@@ -132,6 +132,50 @@ module.exports = async function(fastify) {
             };
         });
 
+        const prevYears = [];
+        for (let py = year - 1; py >= year - 3 && py >= 2025; py--) {
+            prevYears.push(py);
+        }
+        const prevHistoryMap = {};
+
+        if (prevYears.length > 0) {
+            const yearConds = prevYears.map(py => {
+                const pStart = `${py}-${String(mo).padStart(2,'0')}-01`;
+                const pNextMo = mo === 12 ? 1 : mo + 1;
+                const pNextYr = mo === 12 ? py + 1 : py;
+                const pEnd = `${pNextYr}-${String(pNextMo).padStart(2,'0')}-01`;
+                return `(d.created_at >= '${pStart}'::timestamp AND d.created_at < '${pEnd}'::timestamp)`;
+            }).join(' OR ');
+
+            const prevDailyRows = await db.all(`
+                SELECT
+                    c.assigned_to_id AS uid,
+                    EXTRACT(YEAR FROM d.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::int AS yr,
+                    COALESCE(SUM(oi_sum.revenue - COALESCE(d.discount_amount, 0)), 0) AS actual_rev
+                FROM dht_orders d
+                JOIN order_codes oc ON oc.order_code = d.order_code
+                JOIN customers c ON oc.customer_id = c.id
+                LEFT JOIN LATERAL (
+                    SELECT COALESCE(
+                        (SELECT SUM(di.item_total) FROM dht_order_items di WHERE di.dht_order_id = d.id),
+                        0
+                    ) - COALESCE(d.vat_amount, 0) - COALESCE(d.discount_amount, 0) AS revenue
+                ) oi_sum ON true
+                WHERE c.assigned_to_id IN (${empPh})
+                  AND COALESCE(c.cancel_approved, 0) != 1
+                  AND COALESCE(d.is_draft, false) = false
+                  AND (${yearConds})
+                  AND COALESCE(oc.status, 'active') != 'cancelled'
+                  ${_prodSQL}
+                GROUP BY c.assigned_to_id, yr
+            `, [...empIds]);
+
+            prevDailyRows.forEach(r => {
+                if (!prevHistoryMap[r.uid]) prevHistoryMap[r.uid] = {};
+                prevHistoryMap[r.uid][r.yr] = parseFloat(r.actual_rev) || 0;
+            });
+        }
+
         // Helper: build daily arrays for a user
         function buildDaily(uid) {
             const m = dailyMap[uid] || { dp: {}, pettem: {} };
@@ -214,6 +258,12 @@ module.exports = async function(fastify) {
                 const bonusM1 = typeof targetObj === 'object' ? (targetObj.target_bonus_m1 || '') : '';
                 const bonusM120 = typeof targetObj === 'object' ? (targetObj.target_bonus_m120 || '') : '';
                 const bonusCond = typeof targetObj === 'object' ? (targetObj.target_bonus_conditions || '') : '';
+                const prevHistory = prevYears.map(py => ({
+                    year: py,
+                    label: `T${mo}/${py}`,
+                    revenue: prevHistoryMap[emp.id]?.[py] || 0
+                }));
+                const prevYearActual = prevHistory[0]?.revenue || 0;
                 return {
                     user_id: emp.id,
                     username: emp.username,
@@ -224,6 +274,8 @@ module.exports = async function(fastify) {
                     target_bonus_m120: bonusM120,
                     target_bonus_conditions: bonusCond,
                     actual,
+                    prev_year_actual: prevYearActual,
+                    prev_history: prevHistory,
                     rate: target > 0 ? Math.round(1000 * actual / target) / 10 : 0,
                     missing: target - actual,
                     daily,
@@ -248,6 +300,15 @@ module.exports = async function(fastify) {
             const teamDailyOrdersAll = sumDailyArrays(empData.map(e => e.daily_orders));
             const teamDailyRetAll = sumDailyArrays(empData.map(e => e.daily_ret_cust));
             const teamActual = teamDailyAll.reduce((s, v) => s + v, 0);
+            const teamPrevHistory = prevYears.map(py => ({
+                year: py,
+                label: `T${mo}/${py}`,
+                revenue: empData.reduce((s, e) => {
+                    const h = (e.prev_history || []).find(x => x.year === py);
+                    return s + (h ? h.revenue : 0);
+                }, 0)
+            }));
+            const teamPrevYearActual = teamPrevHistory[0]?.revenue || 0;
             const rootDeptTargetObj = kpiMap[`dept_${rootDept.id}_revenue`] || kpiMap[`team_${rootDept.id}_revenue`] || {};
             const teamTargetRoot = parseFloat(rootDeptTargetObj.target_value) || 0;
 
@@ -261,6 +322,8 @@ module.exports = async function(fastify) {
                 target_bonus_m120: rootDeptTargetObj.target_bonus_m120 || '',
                 target_bonus_conditions: rootDeptTargetObj.target_bonus_conditions || '',
                 actual: teamActual,
+                prev_year_actual: teamPrevYearActual,
+                prev_history: teamPrevHistory,
                 rate_1: teamTargetRoot > 0 ? Math.round(1000 * teamActual / teamTargetRoot) / 10 : 0,
                 rate_120: teamTargetRoot > 0 ? Math.round(1000 * teamActual / (teamTargetRoot * 1.2)) / 10 : 0,
                 missing_1: teamTargetRoot - teamActual,
@@ -300,6 +363,12 @@ module.exports = async function(fastify) {
                 const bonusM1 = typeof targetObj === 'object' ? (targetObj.target_bonus_m1 || '') : '';
                 const bonusM120 = typeof targetObj === 'object' ? (targetObj.target_bonus_m120 || '') : '';
                 const bonusCond = typeof targetObj === 'object' ? (targetObj.target_bonus_conditions || '') : '';
+                const prevHistory = prevYears.map(py => ({
+                    year: py,
+                    label: `T${mo}/${py}`,
+                    revenue: prevHistoryMap[emp.id]?.[py] || 0
+                }));
+                const prevYearActual = prevHistory[0]?.revenue || 0;
                 return {
                     user_id: emp.id,
                     username: emp.username,
@@ -310,6 +379,8 @@ module.exports = async function(fastify) {
                     target_bonus_m120: bonusM120,
                     target_bonus_conditions: bonusCond,
                     actual,
+                    prev_year_actual: prevYearActual,
+                    prev_history: prevHistory,
                     rate: target > 0 ? Math.round(1000 * actual / target) / 10 : 0,
                     missing: target - actual,
                     daily,
@@ -343,6 +414,15 @@ module.exports = async function(fastify) {
             const teamDailyOrdersAll = sumDailyArrays(empData.map(e => e.daily_orders));
             const teamDailyRetAll = sumDailyArrays(empData.map(e => e.daily_ret_cust));
             const teamActual = teamDailyAll.reduce((s, v) => s + v, 0);
+            const teamPrevHistory = prevYears.map(py => ({
+                year: py,
+                label: `T${mo}/${py}`,
+                revenue: empData.reduce((s, e) => {
+                    const h = (e.prev_history || []).find(x => x.year === py);
+                    return s + (h ? h.revenue : 0);
+                }, 0)
+            }));
+            const teamPrevYearActual = teamPrevHistory[0]?.revenue || 0;
             
             const deptTargetObj = kpiMap[`dept_${dept.id}_revenue`] || kpiMap[`team_${dept.id}_revenue`] || {};
             const teamTarget = parseFloat(deptTargetObj.target_value) || 0;
@@ -357,6 +437,8 @@ module.exports = async function(fastify) {
                 target_bonus_m120: deptTargetObj.target_bonus_m120 || '',
                 target_bonus_conditions: deptTargetObj.target_bonus_conditions || '',
                 actual: teamActual,
+                prev_year_actual: teamPrevYearActual,
+                prev_history: teamPrevHistory,
                 rate_1: teamTarget > 0 ? Math.round(1000 * teamActual / teamTarget) / 10 : 0,
                 rate_120: teamTarget > 0 ? Math.round(1000 * teamActual / (teamTarget * 1.2)) / 10 : 0,
                 missing_1: teamTarget - teamActual,
@@ -506,13 +588,24 @@ module.exports = async function(fastify) {
         const sumRetDp = teams.reduce((s, t) => s + (t.ret_dp_cust || 0), 0);
         const sumOldPetTem = teams.reduce((s, t) => s + (t.old_pettem_total || 0), 0);
         const sumRetPetTem = teams.reduce((s, t) => s + (t.ret_pettem_cust || 0), 0);
+        const deptPrevHistory = prevYears.map(py => ({
+            year: py,
+            label: `T${mo}/${py}`,
+            revenue: teams.reduce((s, t) => {
+                const h = (t.prev_history || []).find(x => x.year === py);
+                return s + (h ? h.revenue : 0);
+            }, 0)
+        }));
+        const deptPrevYearActual = deptPrevHistory[0]?.revenue || 0;
 
         return {
-            month: { year, month: mo, label: periodLabel, days_in_month: daysInMonth, days_left: daysLeft },
+            month: { year, month: mo, label: periodLabel, prev_years: prevYears, prev_year_label: prevYears[0] ? `T${mo}/${prevYears[0]}` : '', days_in_month: daysInMonth, days_left: daysLeft },
             summary: {
                 target_1: totalTarget,
                 target_120: totalTarget120,
                 actual: totalActual,
+                prev_year_actual: deptPrevYearActual,
+                prev_history: deptPrevHistory,
                 rate_1: totalTarget > 0 ? Math.round(1000 * totalActual / totalTarget) / 10 : 0,
                 rate_120: totalTarget120 > 0 ? Math.round(1000 * totalActual / totalTarget120) / 10 : 0,
                 missing_1: totalTarget - totalActual,

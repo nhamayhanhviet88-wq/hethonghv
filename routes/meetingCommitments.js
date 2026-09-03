@@ -14,6 +14,7 @@ async function meetingCommitmentsRoutes(fastify, options) {
         // Migrate existing sessions: classify by title
         await db.run(`UPDATE meeting_sessions SET source = 'kpikdoanh' WHERE source IS NULL AND UPPER(title) LIKE '%KINH DOANH%'`);
         await db.run(`UPDATE meeting_sessions SET source = 'kpisale' WHERE source IS NULL AND UPPER(title) LIKE '%SALE%'`);
+        await db.run(`UPDATE meeting_sessions SET source = 'kpimarketing' WHERE source IS NULL AND UPPER(title) LIKE '%MARKETING%'`);
     } catch(e) { /* column may already exist */ }
 
     // Auto-migrate: meeting_session_departments table
@@ -37,20 +38,20 @@ async function meetingCommitmentsRoutes(fastify, options) {
             updated_by INTEGER,
             UNIQUE(source, permission_type)
         )`);
-        // Seed defaults if empty
-        const cnt = await db.get('SELECT COUNT(*) AS c FROM meeting_permissions');
-        if (!cnt || cnt.c == 0) {
-            const defaults = [
-                ['kpikdoanh', 'create_session', 'giam_doc'],
-                ['kpikdoanh', 'setup_personal', 'giam_doc'],
-                ['kpikdoanh', 'setup_team', 'giam_doc'],
-                ['kpisale', 'create_session', 'giam_doc'],
-                ['kpisale', 'setup_personal', 'giam_doc'],
-                ['kpisale', 'setup_team', 'giam_doc'],
-            ];
-            for (const [src, pt, roles] of defaults) {
-                await db.run('INSERT INTO meeting_permissions (source, permission_type, allowed_roles) VALUES (?, ?, ?) ON CONFLICT DO NOTHING', [src, pt, roles]);
-            }
+        // Seed defaults if empty or insert missing
+        const defaults = [
+            ['kpikdoanh', 'create_session', 'giam_doc'],
+            ['kpikdoanh', 'setup_personal', 'giam_doc'],
+            ['kpikdoanh', 'setup_team', 'giam_doc'],
+            ['kpisale', 'create_session', 'giam_doc'],
+            ['kpisale', 'setup_personal', 'giam_doc'],
+            ['kpisale', 'setup_team', 'giam_doc'],
+            ['kpimarketing', 'create_session', 'giam_doc'],
+            ['kpimarketing', 'setup_personal', 'giam_doc'],
+            ['kpimarketing', 'setup_team', 'giam_doc'],
+        ];
+        for (const [src, pt, roles] of defaults) {
+            await db.run('INSERT INTO meeting_permissions (source, permission_type, allowed_roles) VALUES (?, ?, ?) ON CONFLICT DO NOTHING', [src, pt, roles]);
         }
     } catch(e) { console.error('meeting_permissions migration error:', e.message); }
 
@@ -125,7 +126,7 @@ async function meetingCommitmentsRoutes(fastify, options) {
         const params = [];
 
         if (source) {
-            where += ` AND (ms.source = ? OR ms.source = 'camketcuochop' OR ms.source IS NULL)`;
+            where += ` AND (ms.source = ? OR ms.source IS NULL)`;
             params.push(source);
         }
 
@@ -194,31 +195,32 @@ async function meetingCommitmentsRoutes(fastify, options) {
 
     // ===== CREATE session (GĐ & QL Cấp Cao) =====
     fastify.post('/api/meeting-commitments/sessions', { preHandler: [authenticate] }, async (request, reply) => {
-        if (request.user.role !== 'giam_doc' && request.user.role !== 'quan_ly_cap_cao') {
-            return reply.code(403).send({ error: 'Chỉ Giám Đốc hoặc Quản Lý Cấp Cao mới được tạo cuộc họp' });
+        if (request.user.role !== 'giam_doc' && request.user.role !== 'quan_ly_cap_cao' && request.user.role !== 'quan_ly' && request.user.role !== 'truong_phong') {
+            return reply.code(403).send({ error: 'Chỉ Quản Lý hoặc Trưởng Phòng mới được tạo cuộc họp' });
         }
 
         const { title, meeting_date, source, start_date, end_date } = request.body || {};
         if (!title || !meeting_date) return reply.code(400).send({ error: 'Thiếu tiêu đề hoặc ngày họp' });
 
         const todayStr = new Date().toISOString().split('T')[0];
-        const activeSession = await db.get(
-            `SELECT * FROM meeting_sessions WHERE COALESCE(end_date, meeting_date) >= ? ORDER BY id DESC LIMIT 1`,
-            [todayStr]
-        );
+        let activeQuery = `SELECT * FROM meeting_sessions WHERE COALESCE(end_date, meeting_date) >= ?`;
+        const activeParams = [todayStr];
+        if (source) {
+            activeQuery += ` AND source = ?`;
+            activeParams.push(source);
+        } else {
+            activeQuery += ` AND source IS NULL`;
+        }
+        activeQuery += ` ORDER BY id DESC LIMIT 1`;
+        const activeSession = await db.get(activeQuery, activeParams);
         if (activeSession) {
             return reply.code(400).send({
-                error: `Cuộc họp "${activeSession.title}" chưa được đóng. Vui lòng đóng cuộc họp hiện tại trước khi tạo cuộc họp mới!`
+                error: `Cuộc họp "${activeSession.title}" của phòng ban này chưa được đóng. Vui lòng đóng cuộc họp hiện tại trước khi tạo cuộc họp mới!`
             });
         }
 
         const sDate = start_date || meeting_date;
-        let eDate = end_date;
-        if (!eDate) {
-            const d = new Date(sDate);
-            d.setDate(d.getDate() + 7);
-            eDate = d.toISOString().split('T')[0];
-        }
+        let eDate = end_date || '2099-12-31';
 
         const result = await db.get(
             'INSERT INTO meeting_sessions (title, meeting_date, created_by, source, start_date, end_date) VALUES (?, ?, ?, ?, ?, ?) RETURNING id',
@@ -476,6 +478,8 @@ async function meetingCommitmentsRoutes(fastify, options) {
             rootDeptId = parseInt(dept_id);
         } else if (source === 'kpisale') {
             rootDeptId = 4;
+        } else if (source === 'kpimarketing' || source === 'kpimkt') {
+            rootDeptId = 6;
         }
 
         const allDepts = await db.all(
@@ -509,7 +513,7 @@ async function meetingCommitmentsRoutes(fastify, options) {
         if (rootMembers.length > 0) {
             teams.push({
                 id: rootDept.id,
-                name: rootDept.id === 4 ? 'QUẢN LÝ SALE' : 'QUẢN LÝ',
+                name: rootDept.id === 4 ? 'QUẢN LÝ SALE' : (rootDept.id === 6 ? 'PHÒNG MARKETING' : 'QUẢN LÝ'),
                 members: rootMembers
             });
         }
@@ -538,7 +542,7 @@ async function meetingCommitmentsRoutes(fastify, options) {
              WHERE EXTRACT(MONTH FROM meeting_date) = ? AND EXTRACT(YEAR FROM meeting_date) = ?`;
         const sessParams = [month, year];
         if (source) {
-            sessQuery += ` AND (source = ? OR source = 'camketcuochop' OR source IS NULL)`;
+            sessQuery += ` AND (source = ? OR source IS NULL)`;
             sessParams.push(source);
         }
         sessQuery += ` ORDER BY meeting_date ASC, created_at ASC`;

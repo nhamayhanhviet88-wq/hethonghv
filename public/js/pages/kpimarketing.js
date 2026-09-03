@@ -142,6 +142,45 @@ async function renderKpimarketingPage(container) {
             .kpi-v2-input:focus { border-color: #0284c7; box-shadow: 0 0 0 3px rgba(2,132,199,0.18); }
             .kpi-v2-input:disabled, .kpi-v2-input[disabled], select.kpi-v2-input:disabled { background-color: #e2e8f0 !important; color: #475569 !important; cursor: not-allowed !important; pointer-events: none !important; opacity: 0.85 !important; border-color: #cbd5e1 !important; box-shadow: none !important; -webkit-user-select: none !important; user-select: none !important; }
             .kpi-v2-lock-badge { font-size: 11px; background: #fee2e2; color: #991b1b; padding: 2px 8px; border-radius: 6px; font-weight: 800; margin-left: 8px; display: inline-flex; align-items: center; gap: 4px; border: 1px solid #fca5a5; }
+
+            /* === MEETING COMMITMENTS CSS === */
+            .kpi-mc-section{background:#fff;border-radius:16px;border:1px solid #e5e7eb;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.06);margin-top:28px}
+            .kpi-mc-header{padding:18px 24px;font-size:16px;font-weight:800;display:flex;align-items:center;justify-content:space-between;gap:8px;border-bottom:2px solid rgba(234,179,8,.2);color:#78350f;background:linear-gradient(90deg,#fefce8,#fef9c3,#fef08a,#fef9c3,#fefce8);background-size:200% 100%;animation:kpiShimmer 4s ease-in-out infinite}
+            .kpi-mc-btn{padding:8px 16px;border-radius:10px;border:none;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap;display:inline-flex;align-items:center;gap:4px}
+            .kpi-mc-btn-primary{background:linear-gradient(135deg,#4f46e5,#6366f1);color:#fff;box-shadow:0 2px 8px rgba(79,70,229,.3)}
+            .kpi-mc-btn-primary:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(79,70,229,.4)}
+            .kpi-mc-btn-ghost{background:rgba(99,102,241,.08);color:#4338ca}
+            .kpi-mc-btn-ghost:hover{background:rgba(99,102,241,.15)}
+            .kpi-mc-team{padding:16px 24px;border-bottom:1px solid #f1f5f9;background:linear-gradient(135deg,#f5f3ff,#ede9fe,#f5f3ff);border-left:4px solid #8b5cf6;margin:8px 12px;border-radius:12px;box-shadow:0 2px 8px rgba(139,92,246,.08)}
+            .kpi-mc-team-name{font-size:14px;font-weight:800;color:#4c1d95;margin-bottom:10px;display:flex;align-items:center;gap:8px;padding:8px 12px;background:linear-gradient(90deg,#ede9fe,#ddd6fe);border-radius:8px}
+            .kpi-mc-emp{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-radius:10px;margin:3px 0;transition:all .2s;background:#fff;border-bottom:1px solid #f1f5f9}
+            .kpi-mc-emp-odd{background:#f8fafc}
+            .kpi-mc-emp:hover{background:#eef2ff;box-shadow:0 2px 8px rgba(99,102,241,.1);transform:translateX(2px)}
+            .kpi-mc-emp-info{display:flex;align-items:center;gap:10px;flex:1;min-width:0}
+            .kpi-mc-emp-name{font-size:14px;font-weight:700;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+            .kpi-mc-emp-role{font-size:11px;color:#7c3aed;margin-left:8px;font-weight:600}
+            .kpi-mc-avatar{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#fff;flex-shrink:0;text-transform:uppercase}
+            .kpi-mc-emp-actions{display:flex;gap:6px;align-items:center;flex-shrink:0}
+            .kpi-mc-badge{font-size:13px;padding:5px 14px;border-radius:20px;font-weight:700;white-space:nowrap;min-width:120px;text-align:center}
+            .kpi-mc-badge-done{background:#dcfce7;color:#166534}
+            .kpi-mc-badge-pending{background:#fef3c7;color:#92400e}
+            .kpi-mc-badge-none{background:#f1f5f9;color:#6b7280}
+            .kpi-mc-badge-team{font-size:14px;padding:6px 16px;font-weight:800;min-width:130px;background:linear-gradient(135deg,#7c3aed,#a855f7,#c084fc,#a855f7,#7c3aed);background-size:300% 100%;color:#fff;border-radius:22px;box-shadow:0 2px 10px rgba(124,58,237,.35);animation:kpiTeamShimmer 3s ease-in-out infinite;text-shadow:0 1px 2px rgba(0,0,0,.15)}
+            @keyframes kpiTeamShimmer{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+            @keyframes kpiShimmer{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+            .kpi-mc-modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+            .kpi-mc-modal{background:#fff;border-radius:20px;width:600px;max-width:95vw;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 25px 60px rgba(0,0,0,.25);animation:kpiMcSlideUp .3s ease;overflow:hidden}
+            @keyframes kpiMcSlideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+            .kpi-mc-modal-head{padding:20px 24px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+            .kpi-mc-modal-head h3{font-size:16px;font-weight:800;color:#1e293b;margin:0}
+            .kpi-mc-modal-body{padding:20px 24px;flex:1;overflow-y:auto}
+            .kpi-mc-modal-foot{padding:16px 24px;border-top:1px solid #e5e7eb;display:flex;justify-content:flex-end;gap:10px;flex-shrink:0}
+            .kpi-mc-input{width:100%;padding:10px 14px;border:2px solid #e5e7eb;border-radius:10px;font-size:13px;transition:border .2s;outline:none;font-family:inherit}
+            .kpi-mc-input:focus{border-color:#6366f1}
+            .kpi-mc-item{padding:14px;border:1px solid #e5e7eb;border-radius:12px;margin-bottom:10px;background:#fafafa}
+            .kpi-mc-item-head{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+            .kpi-mc-item-stt{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#4f46e5,#6366f1);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0}
+            .kpi-mc-remove{width:24px;height:24px;border-radius:50%;border:none;background:#fee2e2;color:#dc2626;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center}
         `;
         document.head.appendChild(style);
     }
@@ -149,12 +188,15 @@ async function renderKpimarketingPage(container) {
     container.innerHTML = `
         <div class="kpi-v2-wrap">
             <!-- TOPBAR -->
-            <div class="kpi-v2-topbar">
-                <div class="kpi-v2-nav">
-                    <button class="kpi-v2-nav-btn" onclick="kpiMktChangeMonth(-1)" title="Tháng trước">‹</button>
-                    <span class="kpi-v2-month-label" id="kpiMktMonthText" onclick="kpiMktPickMonth()">T8/2026</span>
-                    <button class="kpi-v2-nav-btn" onclick="kpiMktChangeMonth(1)" title="Tháng sau">›</button>
-                    <input type="month" id="kpiMktMonthInput" onchange="kpiMktOnMonthInput(this.value)">
+            <div class="kpi-v2-topbar" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                    <div class="kpi-v2-nav">
+                        <button class="kpi-v2-nav-btn" onclick="kpiMktChangeMonth(-1)" title="Tháng trước">‹</button>
+                        <span class="kpi-v2-month-label" id="kpiMktMonthText" onclick="kpiMktPickMonth()">T8/2026</span>
+                        <button class="kpi-v2-nav-btn" onclick="kpiMktChangeMonth(1)" title="Tháng sau">›</button>
+                        <input type="month" id="kpiMktMonthInput" onchange="kpiMktOnMonthInput(this.value)">
+                    </div>
+                    <div id="kpiMktYoYButtonsContainer" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"></div>
                 </div>
                 <div>
                     <button class="kpi-v2-add-btn" id="kpiMktAddCatBtn" onclick="kpiMktOpenAddCatModal()">➕ Thêm Mục Con / Mã Nguồn Marketing (Ảnh 2)</button>
@@ -312,6 +354,9 @@ async function renderKpimarketingPage(container) {
                 </div>
             </div>
         </div>
+
+        <!-- MEETING COMMITMENTS SECTION FOR MARKETING -->
+        <div id="kpiMktMeetingCommit" style="margin-top:24px"></div>
     `;
 
     await loadKpimarketingData();
@@ -341,10 +386,33 @@ function kpiMktSetSegmentFilter(seg) {
         btnTP.style.background = (seg === 'tempet') ? '#2563eb' : '#fff';
         btnTP.style.color = (seg === 'tempet') ? '#fff' : '#334155';
         btnTP.style.borderColor = (seg === 'tempet') ? '#2563eb' : '#cbd5e1';
-        btnTP.style.fontWeight = (seg === 'tempet') ? '800' : '700';
     }
 
     loadKpimarketingData();
+}
+
+function _handleYoYClick(e, mStr, navFn) {
+    if (!e) return;
+    if (e.button === 1 || e.which === 2) {
+        e.preventDefault();
+        e.stopPropagation();
+        const url = window.location.pathname + '?month=' + mStr;
+        window.open(url, '_blank');
+        return false;
+    } else if (e.type === 'click' && (e.button === 0 || e.button === undefined)) {
+        navFn(mStr);
+    }
+}
+
+function kpiMktRenderYoYButtons(year, mo) {
+    const container = document.getElementById('kpiMktYoYButtonsContainer');
+    if (!container) return;
+    let html = '';
+    for (let py = year - 1; py >= 2025; py--) {
+        const mStr = `${py}-${String(mo).padStart(2, '0')}`;
+        html += `<button type="button" onclick="_handleYoYClick(event, '${mStr}', kpiMktOnMonthInput)" onauxclick="_handleYoYClick(event, '${mStr}', kpiMktOnMonthInput)" onmousedown="if(event.button===1){event.preventDefault();_handleYoYClick(event, '${mStr}', kpiMktOnMonthInput);}" title="💡 Bấm chuột trái: Xem tại trang này | Bấm chuột giữa: Mở Tab mới" style="padding:6px 12px;border-radius:10px;border:1.5px solid #818cf8;background:linear-gradient(135deg,#e0e7ff,#eef2ff);color:#3730a3;font-size:12px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:4px;box-shadow:0 1px 3px rgba(0,0,0,0.05);transition:all 0.15s ease" onmouseover="this.style.background='#c7d2fe';this.style.transform='translateY(-1px)'" onmouseout="this.style.background='linear-gradient(135deg,#e0e7ff,#eef2ff)';this.style.transform='none'">📊 T${mo}/${py}</button>`;
+    }
+    container.innerHTML = html;
 }
 
 async function loadKpimarketingData() {
@@ -358,7 +426,10 @@ async function loadKpimarketingData() {
         const monthTxt = document.getElementById('kpiMktMonthText');
         if (monthTxt) {
             const [y, m] = _kpiMkt.month.split('-');
-            monthTxt.innerText = `T${parseInt(m, 10)}/${y}`;
+            const yearNum = parseInt(y, 10);
+            const moNum = parseInt(m, 10);
+            monthTxt.innerText = `T${moNum}/${yearNum}`;
+            kpiMktRenderYoYButtons(yearNum, moNum);
         }
 
         const segParam = (_kpiMkt && _kpiMkt.segment) ? _kpiMkt.segment : 'all';
@@ -728,6 +799,9 @@ function renderCategoryTable(res) {
 
     const totalOrdersEl = document.getElementById('kpiMktTotalOrders');
     if (totalOrdersEl) totalOrdersEl.innerText = `${totalOrders} đơn`;
+
+    // Load meeting commitments for Marketing
+    loadKpiMktMeetingCommit();
 }
 
 /* MONTH NAVIGATION HELPERS */
@@ -3088,10 +3162,10 @@ function kpiInitMktTrendSection(res) {
 
     // Populate Year Select
     const yearSelect = document.getElementById('kpiMktYearSelect');
-    if (yearSelect && !yearSelect.hasChildNodes()) {
+    if (yearSelect && (!yearSelect.options || yearSelect.options.length === 0)) {
         const curY = (new Date()).getFullYear();
         let yHtml = '';
-        for (let y = curY; y >= curY - 2; y--) {
+        for (let y = curY; y >= 2025; y--) {
             yHtml += `<option value="${y}">Năm ${y}</option>`;
         }
         yearSelect.innerHTML = yHtml;
@@ -3902,8 +3976,627 @@ function kpiMktOpenMetricDetailModal(metricKey) {
     document.body.appendChild(modal);
 }
 
+// ===== MEETING COMMITMENTS EMBED (KPI MARKETING ADS) =====
+var _mcMktSession = null;
+var _mcMktSessions = [];
+var _mcMktAllCommitments = [];
+var _mcMktCommitments = [];
+var _mcMktTeams = [];
+var _mcMktCollapsed = false;
+var _mcMktYearlyData = null;
+var _mcMktMonthlyCollapsed = false;
+var _mcMktPerms = [];
+
+function _kpiMktIsNV() {
+    var u = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : (window._currentUser || {});
+    if (!u.role) return false;
+    return ['nhan_vien_mkt', 'mkt', 'nhan_vien', 'thu_viec'].indexOf(u.role) >= 0;
+}
+
+function _kpiMktIsTP() {
+    var u = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : (window._currentUser || {});
+    if (!u.role) return false;
+    return ['truong_phong', 'quan_ly_mkt'].indexOf(u.role) >= 0;
+}
+
+async function loadKpiMktMeetingCommit() {
+    var el = document.getElementById('kpiMktMeetingCommit');
+    if (!el) return;
+    try {
+        var empData = await apiCall('/api/meeting-commitments/employees?source=kpimarketing');
+        _mcMktTeams = empData.teams || [];
+        var u = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : (window._currentUser || {});
+        if (_kpiMktIsTP() && u && u.department_id) {
+            _mcMktTeams = _mcMktTeams.filter(function(t) { return t.id === u.department_id; });
+        }
+        var mcParts = (_kpiMkt.month || '').split('-').map(Number);
+        var mcYear = mcParts[0] || new Date().getFullYear();
+        var mcMo = mcParts[1] || (new Date().getMonth() + 1);
+
+        var monthlyData = await apiCall('/api/meeting-commitments/monthly?month=' + mcMo + '&year=' + mcYear + '&source=kpimarketing');
+        _mcMktSessions = monthlyData.sessions || [];
+        _mcMktAllCommitments = monthlyData.allCommitments || [];
+        try { _mcMktYearlyData = await apiCall('/api/meeting-commitments/yearly-summary?year=' + mcYear + '&source=kpimarketing'); } catch(e) { _mcMktYearlyData = null; }
+        try { var permRes = await apiCall('/api/meeting-commitments/permissions'); _mcMktPerms = permRes.permissions || []; } catch(e) { _mcMktPerms = []; }
+
+        if (_mcMktSessions.length > 0) {
+            var curId = _mcMktSession ? _mcMktSession.id : null;
+            var foundSess = curId ? _mcMktSessions.find(function(s) { return s.id === curId; }) : null;
+            _mcMktSession = foundSess || _mcMktSessions[_mcMktSessions.length - 1];
+            _mcMktCommitments = _mcMktAllCommitments.filter(function(c) { return c.session_id === _mcMktSession.id; });
+            if (typeof window !== 'undefined') {
+                window._mcSession = _mcMktSession;
+                window._mcCommitments = _mcMktCommitments;
+            }
+        } else {
+            _mcMktSession = null;
+            _mcMktCommitments = [];
+            if (typeof window !== 'undefined') {
+                window._mcSession = null;
+                window._mcCommitments = [];
+            }
+        }
+        renderKpiMktMeetingCommit(el);
+    } catch(e) {
+        console.error('Meeting commit error for Marketing:', e);
+        el.innerHTML = '<div style="padding:20px;color:#ef4444;text-align:center">Lỗi tải cam kết Marketing: ' + (e.message||'') + '</div>';
+    }
+}
+
+function _mcMktHasPerm(permType) {
+    var user = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : null;
+    if (!user) return false;
+    if (user.role === 'giam_doc' || user.role === 'admin') return true;
+    var perm = _mcMktPerms.find(function(p) { return p.source === 'kpimarketing' && p.permission_type === permType; });
+    if (!perm) return false;
+    return perm.allowed_roles.split(',').indexOf(user.role) >= 0;
+}
+
+function renderKpiMktMeetingCommit(el) {
+    var user = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : {};
+    var canCreate = _mcMktHasPerm('create_session');
+    var canSetupPersonal = _mcMktHasPerm('setup_personal');
+    var canSetupTeam = _mcMktHasPerm('setup_team');
+    var parts = (_kpiMkt.month || '').split('-').map(Number);
+    var selYear = parts[0] || new Date().getFullYear();
+    var selMonth = parts[1] || (new Date().getMonth() + 1);
+    var monthNames = ['', 'Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6', 'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'];
+
+    var h = '<div class="kpi-mc-section">';
+    h += '<div class="kpi-mc-header">';
+    h += '<div style="display:flex;align-items:center;gap:8px;cursor:pointer" onclick="_mcMktToggleSection()">';
+    h += '<span id="mcMktCollapseIcon" style="font-size:16px;transition:transform .3s">' + (_mcMktCollapsed ? '▶' : '▼') + '</span>';
+    h += '<span>📝 Cam Kết Cuộc Họp : KPI Marketing Ads</span>';
+    h += '<span style="font-size:13px;font-weight:500;color:#6366f1">— ' + monthNames[selMonth] + '/' + selYear + ' (' + _mcMktSessions.length + ' cuộc họp)</span>';
+    h += '</div>';
+    h += '<div style="display:flex;gap:8px">';
+    if (canCreate) {
+        h += '<button type="button" class="kpi-mc-btn kpi-mc-btn-primary" onclick="mcMktCreateSession()">➕ Tạo Cuộc Họp</button>';
+    }
+    if (canSetupPersonal) {
+        h += '<button type="button" class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSetupTemplates(\'kpimarketing\',\'Cá Nhân\')" title="Mẫu cá nhân">⚙️ Mẫu Cá Nhân</button>';
+    }
+    if (canSetupTeam) {
+        h += '<button type="button" class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSetupTemplates(\'kpimarketing_team\',\'Team\')" title="Mẫu team">⚙️ Mẫu Team</button>';
+    }
+    h += '<a href="/camketcuochop" class="kpi-mc-btn kpi-mc-btn-ghost" style="text-decoration:none">📜 Xem Lịch Sử</a>';
+    h += '</div></div>';
+
+    h += '<div id="mcMktSectionBody" style="' + (_mcMktCollapsed ? 'display:none' : '') + ';padding:20px">';
+
+    if (_mcMktSessions.length === 0) {
+        h += '<div style="padding:40px;text-align:center;color:#6b7280"><div style="font-size:40px;margin-bottom:12px">📫</div>';
+        h += '<div style="font-size:14px;font-weight:600">Chưa có cuộc họp nào trong tháng này</div>';
+        h += '<div style="font-size:12px;color:#9ca3af;margin-top:4px">Bấm "➕ Tạo Cuộc Họp" để bắt đầu</div></div>';
+    } else {
+        function mcMFmtPct(v) { var r = Math.round(v * 10) / 10; return r.toString().replace('.', ','); }
+        var isGD = user.role === 'giam_doc' || user.role === 'admin';
+
+        // MONTHLY SUMMARY CARDS
+        h += '<div style="margin-bottom:16px;padding:16px;background:linear-gradient(135deg,#f8fafc,#eef2ff);border-radius:14px;border:1px solid #e0e7ff;border-left:5px solid #6366f1">';
+        h += '<div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="_mcMktToggleMonthly()">';
+        h += '<div style="display:flex;align-items:center;gap:8px">';
+        h += '<span id="mcMktMonthlyIcon" style="font-size:14px;transition:transform .3s;color:#6366f1">' + (_mcMktMonthlyCollapsed ? '▶' : '▼') + '</span>';
+        h += '<span style="font-size:15px;font-weight:900;color:#1e293b">📊 Tổng Kết Cam Kết Tháng ' + selMonth + '/' + selYear + '</span>';
+        h += '<span style="font-size:11px;font-weight:500;color:#6366f1;background:#eef2ff;padding:2px 8px;border-radius:8px">' + _mcMktSessions.length + ' cuộc họp</span>';
+        h += '</div></div>';
+
+        h += '<div id="mcMktMonthlyBody" style="' + (_mcMktMonthlyCollapsed ? 'display:none' : '') + ';margin-top:14px">';
+        var personMap = {};
+        for (var ai = 0; ai < _mcMktAllCommitments.length; ai++) {
+            var ac = _mcMktAllCommitments[ai];
+            if (ac.team_dept_id) continue;
+            if (!personMap[ac.user_id]) {
+                personMap[ac.user_id] = { name: ac.user_name, role: ac.user_role, total: 0, done: 0, sessionPcts: {} };
+            }
+            personMap[ac.user_id].total++;
+            if (ac.is_completed) personMap[ac.user_id].done++;
+            if (!personMap[ac.user_id].sessionPcts[ac.session_id]) {
+                personMap[ac.user_id].sessionPcts[ac.session_id] = { sum: 0, count: 0 };
+            }
+            personMap[ac.user_id].sessionPcts[ac.session_id].sum += (ac.completion_pct || 0);
+            personMap[ac.user_id].sessionPcts[ac.session_id].count++;
+        }
+        var personArr = Object.keys(personMap).map(function(uid) {
+            var p = personMap[uid];
+            var sessKeys = Object.keys(p.sessionPcts);
+            if (sessKeys.length > 0) {
+                var sessAvgSum = 0;
+                for (var sk = 0; sk < sessKeys.length; sk++) {
+                    var sp = p.sessionPcts[sessKeys[sk]];
+                    sessAvgSum += (sp.sum / sp.count);
+                }
+                p.avgPct = Math.round((sessAvgSum / sessKeys.length) * 10) / 10;
+            } else { p.avgPct = 0; }
+            p.sessionCount = sessKeys.length;
+            p.uid = parseInt(uid);
+            return p;
+        }).sort(function(a, b) { return b.avgPct - a.avgPct; });
+
+        if (_kpiMktIsNV() && user) {
+            personArr = personArr.filter(function(p) { return p.uid === user.id; });
+            if (personArr.length === 0) {
+                personArr = [{ uid: user.id, name: user.full_name, role: user.role, total: 0, done: 0, avgPct: 0, sessionCount: 0 }];
+            }
+        }
+
+        h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px">';
+        for (var pi = 0; pi < personArr.length; pi++) {
+            var p = personArr[pi];
+            var pPctDisplay = mcMFmtPct(p.avgPct);
+            var pColor = p.avgPct >= 80 ? '#059669' : (p.avgPct >= 50 ? '#d97706' : '#dc2626');
+            var pBg = p.avgPct >= 80 ? '#dcfce7' : (p.avgPct >= 50 ? '#fef3c7' : '#fee2e2');
+            var pGrad = p.avgPct >= 80 ? 'linear-gradient(90deg,#22c55e,#10b981)' : (p.avgPct >= 50 ? 'linear-gradient(90deg,#f59e0b,#eab308)' : 'linear-gradient(90deg,#ef4444,#f87171)');
+            var roleIcon = (p.role === 'quan_ly' || p.role === 'quan_ly_cap_cao' || p.role === 'quan_ly_mkt') ? '👔' : (p.role === 'truong_phong' ? '🏷️' : '👤');
+            var roleText = (p.role === 'quan_ly' || p.role === 'quan_ly_cap_cao' || p.role === 'quan_ly_mkt') ? 'Quản Lý' : (p.role === 'truong_phong' ? 'Trưởng Phòng' : 'Nhân Viên MKT');
+
+            h += '<div style="background:#fff;border-radius:10px;padding:12px 14px;border:1px solid ' + pBg + ';transition:transform .2s,box-shadow .2s" onmouseenter="this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 4px 12px rgba(0,0,0,.08)\'" onmouseleave="this.style.transform=\'\';this.style.boxShadow=\'\'">';
+            h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
+            h += '<div style="display:flex;align-items:center;gap:6px">';
+            h += '<span style="font-size:16px">' + roleIcon + '</span>';
+            h += '<div><div style="font-size:13px;font-weight:700;color:#1e293b">' + p.name + '</div>';
+            h += '<div style="font-size:10px;color:#94a3b8;font-weight:500">' + roleText + '</div></div>';
+            h += '</div>';
+            h += '<div style="font-size:18px;font-weight:900;color:' + pColor + '">' + pPctDisplay + '%</div>';
+            h += '</div>';
+            h += '<div style="height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden;margin-bottom:6px">';
+            h += '<div style="height:100%;width:' + p.avgPct + '%;background:' + pGrad + ';border-radius:3px;transition:width .5s ease"></div>';
+            h += '</div>';
+            h += '<div style="display:flex;justify-content:space-between;font-size:11px;color:#64748b;font-weight:600">';
+            h += '<span>Hoàn thành: ' + p.done + '/' + p.total + '</span>';
+            h += '<span>' + p.sessionCount + ' cuộc họp</span>';
+            h += '</div></div>';
+        }
+        h += '</div>';
+
+        // TEAM SUMMARY CARDS
+        if (_mcMktTeams && _mcMktTeams.length > 0) {
+            var teamSummaryArr = [];
+            for (var tsi = 0; tsi < _mcMktTeams.length; tsi++) {
+                var tteam = _mcMktTeams[tsi];
+                if (!tteam.members || tteam.members.length === 0) continue;
+                var teamOwnAll = _mcMktAllCommitments.filter(function(c) { return c.team_dept_id === tteam.id; });
+                var tTotal = teamOwnAll.length;
+                var tDone = teamOwnAll.filter(function(c) { return c.is_completed; }).length;
+
+                var tSessionMap = {};
+                for (var tci = 0; tci < teamOwnAll.length; tci++) {
+                    var tc = teamOwnAll[tci];
+                    if (!tSessionMap[tc.session_id]) tSessionMap[tc.session_id] = { sum: 0, count: 0 };
+                    tSessionMap[tc.session_id].sum += (tc.completion_pct || 0);
+                    tSessionMap[tc.session_id].count++;
+                }
+                var tSessKeys = Object.keys(tSessionMap);
+                var tAvgPct = 0;
+                if (tSessKeys.length > 0) {
+                    var tSessSum = 0;
+                    for (var tsk = 0; tsk < tSessKeys.length; tsk++) {
+                        var tsm = tSessionMap[tSessKeys[tsk]];
+                        tSessSum += (tsm.sum / tsm.count);
+                    }
+                    tAvgPct = Math.round((tSessSum / tSessKeys.length) * 10) / 10;
+                }
+                teamSummaryArr.push({ team: tteam, total: tTotal, done: tDone, avgPct: tAvgPct, sessCount: tSessKeys.length });
+            }
+            teamSummaryArr.sort(function(a, b) { return b.avgPct - a.avgPct; });
+
+            h += '<div style="margin-top:16px">';
+            h += '<div style="font-size:13px;font-weight:800;color:#6d28d9;margin-bottom:10px;display:flex;align-items:center;gap:6px">🏢 Tổng Kết Theo Bộ Phận <span style="font-size:12px;font-weight:500;color:#8b5cf6">Tháng ' + selMonth + '/' + selYear + '</span></div>';
+            h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px">';
+            for (var tsi2 = 0; tsi2 < teamSummaryArr.length; tsi2++) {
+                var ts2 = teamSummaryArr[tsi2];
+                var tPctDisplay = mcMFmtPct(ts2.avgPct);
+                var tColor = ts2.avgPct >= 80 ? '#059669' : (ts2.avgPct >= 50 ? '#d97706' : '#dc2626');
+                var tGrad = ts2.avgPct >= 80 ? 'linear-gradient(90deg,#22c55e,#10b981)' : (ts2.avgPct >= 50 ? 'linear-gradient(90deg,#f59e0b,#eab308)' : 'linear-gradient(90deg,#ef4444,#f87171)');
+
+                h += '<div style="background:linear-gradient(135deg,#f5f3ff,#ede9fe);border-radius:10px;padding:12px 14px;border:1px solid #c4b5fd;border-left:4px solid #8b5cf6;transition:transform .2s,box-shadow .2s" onmouseenter="this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 4px 12px rgba(139,92,246,.15)\'" onmouseleave="this.style.transform=\'\';this.style.boxShadow=\'\'">';
+                h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
+                h += '<div style="display:flex;align-items:center;gap:6px">';
+                h += '<span style="font-size:16px">🏢</span>';
+                h += '<div><div style="font-size:13px;font-weight:800;color:#4c1d95">' + ts2.team.name + '</div>';
+                h += '<div style="font-size:10px;color:#7c3aed;font-weight:500">' + ts2.team.members.length + ' thành viên</div></div>';
+                h += '</div>';
+                h += '<div style="font-size:18px;font-weight:900;color:' + tColor + '">' + tPctDisplay + '%</div>';
+                h += '</div>';
+                h += '<div style="height:6px;background:#ddd6fe;border-radius:3px;overflow:hidden;margin-bottom:6px">';
+                h += '<div style="height:100%;width:' + ts2.avgPct + '%;background:' + tGrad + ';border-radius:3px;transition:width .5s ease"></div>';
+                h += '</div>';
+                h += '<div style="display:flex;justify-content:space-between;font-size:11px;color:#6d28d9;font-weight:600">';
+                h += '<span>Hoàn thành: ' + ts2.done + '/' + ts2.total + '</span>';
+                h += '<span>' + ts2.sessCount + ' cuộc họp</span>';
+                h += '</div></div>';
+            }
+            h += '</div></div>';
+        }
+        h += '</div></div>';
+
+        // YEARLY SUMMARY
+        h += mcMktRenderYearlySummary();
+
+        // SESSION ACCORDION
+        var _mcMktPalette = [
+            { bg:'#f0f9ff', border:'#7dd3fc', headerBg:'linear-gradient(135deg,#bae6fd,#7dd3fc)', accent:'#0284c7', text:'#075985', teamBg:'linear-gradient(135deg,#f0f9ff,#e0f2fe,#f0f9ff)', teamBorder:'#38bdf8', teamNameBg:'linear-gradient(90deg,#bae6fd,#7dd3fc)', teamNameColor:'#075985', newestBg:'#0284c7', icon:'#0284c7' },
+            { bg:'#f5f3ff', border:'#c4b5fd', headerBg:'linear-gradient(135deg,#ede9fe,#ddd6fe)', accent:'#7c3aed', text:'#4c1d95', teamBg:'linear-gradient(135deg,#f5f3ff,#ede9fe,#f5f3ff)', teamBorder:'#8b5cf6', teamNameBg:'linear-gradient(90deg,#ede9fe,#ddd6fe)', teamNameColor:'#4c1d95', newestBg:'#4338ca', icon:'#7c3aed' },
+            { bg:'#ecfdf5', border:'#6ee7b7', headerBg:'linear-gradient(135deg,#d1fae5,#a7f3d0)', accent:'#059669', text:'#065f46', teamBg:'linear-gradient(135deg,#ecfdf5,#d1fae5,#ecfdf5)', teamBorder:'#10b981', teamNameBg:'linear-gradient(90deg,#d1fae5,#a7f3d0)', teamNameColor:'#065f46', newestBg:'#059669', icon:'#10b981' },
+            { bg:'#fffbeb', border:'#fcd34d', headerBg:'linear-gradient(135deg,#fef3c7,#fde68a)', accent:'#d97706', text:'#78350f', teamBg:'linear-gradient(135deg,#fffbeb,#fef3c7,#fffbeb)', teamBorder:'#f59e0b', teamNameBg:'linear-gradient(90deg,#fef3c7,#fde68a)', teamNameColor:'#78350f', newestBg:'#d97706', icon:'#f59e0b' }
+        ];
+
+        for (var si = 0; si < _mcMktSessions.length; si++) {
+            var sess = _mcMktSessions[si];
+            var stt = si + 1;
+            var isNewest = (si === _mcMktSessions.length - 1);
+            var isOpen = (_mcMktSession && _mcMktSession.id === sess.id) || (!_mcMktSession && isNewest);
+            var iconText = isOpen ? '▼' : '▶';
+            var bodyStyle = isOpen ? 'display:block' : 'display:none';
+            var dateParts = sess.meeting_date.split('T')[0].split('-');
+            var sessDateStr = dateParts[2] + '/' + dateParts[1] + '/' + dateParts[0];
+            var sessCommits = _mcMktAllCommitments.filter(function(c) { return c.session_id === sess.id; });
+            var totalDone = sessCommits.filter(function(c) { return c.is_completed; }).length;
+            var pal = _mcMktPalette[si % _mcMktPalette.length];
+
+            h += '<div class="kpi-mc-session-block" style="margin-bottom:12px;border:2px solid ' + pal.border + ';border-radius:12px;overflow:hidden;background:' + pal.bg + ';border-left:5px solid ' + pal.accent + '">';
+            h += '<div class="kpi-mc-session-head" onclick="mcMktToggleSession(' + sess.id + ')" style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;background:' + pal.headerBg + ';border-bottom:1px solid ' + pal.border + '">';
+            h += '<div style="display:flex;align-items:center;gap:10px">';
+            h += '<span id="mcMktSessIcon_' + sess.id + '" style="font-size:14px;transition:transform .3s;color:' + pal.icon + '">' + iconText + '</span>';
+            h += '<span style="font-size:14px;font-weight:800;color:' + pal.text + '">📋 Cuộc Họp Thứ ' + stt + '</span>';
+            h += '<span style="font-size:12px;font-weight:500;color:' + pal.text + ';opacity:.7">— ' + sess.title + ' (' + sessDateStr + ')</span>';
+            h += '</div>';
+            h += '<div style="display:flex;align-items:center;gap:8px">';
+            if (sessCommits.length > 0) {
+                var pctAll = (Math.round((sessCommits.reduce(function(s, c) { return s + (c.completion_pct || 0); }, 0) / sessCommits.length) * 10) / 10).toString().replace('.', ',');
+                h += '<span class="kpi-mc-badge ' + (totalDone === sessCommits.length ? 'kpi-mc-badge-done' : 'kpi-mc-badge-pending') + '">' + totalDone + '/' + sessCommits.length + ' — ' + pctAll + '%</span>';
+            }
+            if (isNewest) h += '<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:' + pal.newestBg + ';color:#fff;font-weight:700">Mới nhất</span>';
+            var todayStr = new Date().toISOString().split('T')[0];
+            var sessEndDate = sess.end_date ? sess.end_date.split('T')[0] : (sess.meeting_date ? sess.meeting_date.split('T')[0] : '');
+            var isSessOpen = sessEndDate >= todayStr;
+            var isGD = user.role === 'giam_doc';
+            if (isGD || user.role === 'quan_ly_cap_cao') {
+                if (isSessOpen) {
+                    h += '<button class="kpi-mc-btn" style="background:#fff7ed;color:#c2410c;border:1px solid #ffedd5;font-weight:700;font-size:11px;padding:3px 10px;border-radius:8px;cursor:pointer;margin-left:6px" onclick="event.stopPropagation();mcCloseSession(' + sess.id + ',\'' + sess.title.replace(/'/g, "\\'") + '\')">🔒 Đóng Cuộc Họp</button>';
+                } else {
+                    h += '<span style="font-size:11px;font-weight:700;color:#6b7280;background:#f3f4f6;padding:3px 10px;border-radius:8px;border:1px solid #e5e7eb;margin-left:6px">🔒 Đã Đóng</span>';
+                }
+            }
+            h += '</div></div>';
+
+            h += '<div id="mcMktSessBody_' + sess.id + '" style="' + bodyStyle + '">';
+            var isGDOrMktMgr = isGD || user.role === 'quan_ly' || user.role === 'quan_ly_cap_cao' || user.role === 'quan_ly_mkt';
+
+            for (var ti = 0; ti < _mcMktTeams.length; ti++) {
+                var team = _mcMktTeams[ti];
+                if (!team.members || team.members.length === 0) continue;
+                if (_kpiMktIsNV() && user && user.department_id && team.id !== user.department_id) continue;
+                if (_kpiMktIsTP() && user && user.department_id && team.id !== user.department_id) continue;
+
+                var teamCommits = sessCommits.filter(function(c) {
+                    var memberIds = team.members.map(function(m) { return m.id; });
+                    return memberIds.indexOf(c.user_id) >= 0 && !c.team_dept_id;
+                });
+                var teamOwnCommits = sessCommits.filter(function(c) { return c.team_dept_id === team.id; });
+                var teamDone = teamOwnCommits.filter(function(c) { return c.is_completed; }).length;
+                var teamPct = teamOwnCommits.length > 0 ? (Math.round(teamOwnCommits.reduce(function(s, c) { return s + (c.completion_pct || 0); }, 0) / teamOwnCommits.length * 10) / 10).toString().replace('.', ',') : '0';
+
+                h += '<div class="kpi-mc-team" style="background:' + pal.teamBg + ';border-left:4px solid ' + pal.teamBorder + ';border-color:' + pal.teamBorder + '">';
+                h += '<div class="kpi-mc-team-name" style="justify-content:space-between;background:' + pal.teamNameBg + ';color:' + pal.teamNameColor + '">';
+                h += '<span>🏢 ' + team.name + ' <span style="font-size:11px;color:' + pal.teamNameColor + ';opacity:.6;font-weight:500">(' + team.members.length + ' người)</span></span>';
+                h += '<div style="display:flex;align-items:center;gap:6px">';
+                if (teamOwnCommits.length > 0 && !_kpiMktIsNV()) {
+                    h += '<span class="kpi-mc-badge kpi-mc-badge-team">' + teamDone + '/' + teamOwnCommits.length + ' — ' + teamPct + '%</span>';
+                }
+                if (isGDOrMktMgr) {
+                    if (teamOwnCommits.length > 0) {
+                        var teamReviewed = teamOwnCommits.some(function(c) { return !!c.reviewed_by; });
+                        if (isGD) {
+                            h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcMktSwitchSession(' + sess.id + ');mcEditTeam(' + team.id + ',\'' + team.name.replace(/'/g, "\\'") + '\')">✅ Review</button>';
+                            h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcMktSwitchSession(' + sess.id + ');mcEditTeam(' + team.id + ',\'' + team.name.replace(/'/g, "\\'") + '\')">✏️</button>';
+                        } else if (!teamReviewed) {
+                            h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcMktSwitchSession(' + sess.id + ');mcReviewTeam(' + team.id + ',\'' + team.name.replace(/'/g, "\\'") + '\')">✅ Review</button>';
+                        } else {
+                            h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcMktSwitchSession(' + sess.id + ');mcReviewTeam(' + team.id + ',\'' + team.name.replace(/'/g, "\\'") + '\',true)">👁️ Xem</button>';
+                        }
+                    } else {
+                        h += '<button class="kpi-mc-btn kpi-mc-btn-primary" onclick="mcMktSwitchSession(' + sess.id + ');mcEditTeam(' + team.id + ',\'' + team.name.replace(/'/g, "\\'") + '\')">📝 Ghi Team</button>';
+                    }
+                }
+                h += '</div></div>';
+
+                var sortedMembers = team.members.slice().sort(function(a, b) {
+                    var _r = function(r) { return r === 'giam_doc' ? 0 : (r === 'quan_ly_mkt' || r === 'quan_ly' ? 1 : (r === 'truong_phong' ? 2 : 10)); };
+                    return _r(a.role) - _r(b.role);
+                });
+
+                for (var mi = 0; mi < sortedMembers.length; mi++) {
+                    var emp = sortedMembers[mi];
+                    if (_kpiMktIsNV() && user && emp.id !== user.id) continue;
+                    var empCommits = sessCommits.filter(function(c) { return c.user_id === emp.id; });
+                    var totalItems = empCommits.length;
+                    var doneItems = empCommits.filter(function(c) { return c.is_completed; }).length;
+                    var avgPct = totalItems > 0 ? (Math.round(empCommits.reduce(function(s, c) { return s + (c.completion_pct || 0); }, 0) / totalItems * 10) / 10).toString().replace('.', ',') : '0';
+
+                    var roleLabel = emp.role === 'quan_ly_mkt' || emp.role === 'quan_ly' ? 'Quản Lý' : (emp.role === 'truong_phong' ? 'Trưởng Phòng' : '');
+                    var empRowClass = 'kpi-mc-emp' + (mi % 2 === 1 ? ' kpi-mc-emp-odd' : '');
+                    var avatarColors = ['#0284c7','#059669','#7c3aed','#d97706','#3b82f6','#ef4444','#14b8a6'];
+                    var avatarBg = avatarColors[(emp.full_name || '').charCodeAt(0) % avatarColors.length];
+                    var avatarChar = (emp.full_name || '?').charAt(0);
+
+                    h += '<div class="' + empRowClass + '">';
+                    h += '<div style="display:flex;align-items:center;gap:10px;min-width:0">';
+                    h += '<div class="kpi-mc-avatar" style="background:' + avatarBg + '">' + avatarChar + '</div>';
+                    h += '<div style="min-width:0"><span class="kpi-mc-emp-name">' + emp.full_name + '</span>';
+                    if (roleLabel) h += '<span class="kpi-mc-emp-role">' + roleLabel + '</span>';
+                    h += '</div></div>';
+
+                    h += '<div class="kpi-mc-emp-actions">';
+                    if (totalItems > 0) {
+                        if (doneItems === totalItems) {
+                            h += '<span class="kpi-mc-badge kpi-mc-badge-done">✅ ' + doneItems + '/' + totalItems + ' — 100%</span>';
+                        } else {
+                            h += '<span class="kpi-mc-badge kpi-mc-badge-pending">⏳ ' + doneItems + '/' + totalItems + ' — ' + avgPct + '%</span>';
+                        }
+                        var isSelf = (user && user.id === emp.id);
+                        var isEmpReviewed = empCommits.some(function(c) { return !!c.reviewed_by; });
+                        if (isGD) {
+                            h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcMktSwitchSession(' + sess.id + ');mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">✅ Review</button>';
+                            h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcMktSwitchSession(' + sess.id + ');mcEditUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">✏️</button>';
+                        } else if (isGDOrMktMgr) {
+                            if (!isEmpReviewed) {
+                                h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcMktSwitchSession(' + sess.id + ');mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">✅ Review</button>';
+                                h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcMktSwitchSession(' + sess.id + ');mcEditUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">✏️</button>';
+                            } else {
+                                h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcMktSwitchSession(' + sess.id + ');mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\',true)">👁️ Xem</button>';
+                            }
+                        } else if (isSelf) {
+                            if (!isEmpReviewed) {
+                                h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcMktSwitchSession(' + sess.id + ');mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">📝 Đánh giá</button>';
+                                h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcMktSwitchSession(' + sess.id + ');mcEditUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">✏️ Sửa</button>';
+                            } else {
+                                h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcMktSwitchSession(' + sess.id + ');mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\',true)">👁️ Xem</button>';
+                            }
+                        }
+                    } else {
+                        h += '<span class="kpi-mc-badge kpi-mc-badge-none">Chưa có cam kết</span>';
+                        if (isGDOrMktMgr || (user && user.id === emp.id)) {
+                            h += '<button class="kpi-mc-btn kpi-mc-btn-primary" onclick="mcMktSwitchSession(' + sess.id + ');mcEditUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">➕ Ghi Cam Kết</button>';
+                        }
+                    }
+                    h += '</div></div>';
+                }
+                h += '</div>';
+            }
+            h += '</div></div>';
+        }
+    }
+
+    h += '</div></div>';
+    el.innerHTML = h;
+}
+
+function _mcMktToggleSection() {
+    _mcMktCollapsed = !_mcMktCollapsed;
+    var b = document.getElementById('mcMktSectionBody');
+    var ic = document.getElementById('mcMktCollapseIcon');
+    if (b) b.style.display = _mcMktCollapsed ? 'none' : '';
+    if (ic) ic.textContent = _mcMktCollapsed ? '▶' : '▼';
+}
+
+function _mcMktToggleMonthly() {
+    _mcMktMonthlyCollapsed = !_mcMktMonthlyCollapsed;
+    var b = document.getElementById('mcMktMonthlyBody');
+    var ic = document.getElementById('mcMktMonthlyIcon');
+    if (b) b.style.display = _mcMktMonthlyCollapsed ? 'none' : '';
+    if (ic) ic.textContent = _mcMktMonthlyCollapsed ? '▶' : '▼';
+}
+
+function mcMktToggleSession(sessId) {
+    var b = document.getElementById('mcMktSessBody_' + sessId);
+    var ic = document.getElementById('mcMktSessIcon_' + sessId);
+    if (!b) return;
+    var isHidden = b.style.display === 'none';
+    b.style.display = isHidden ? 'block' : 'none';
+    if (ic) ic.textContent = isHidden ? '▼' : '▶';
+    if (isHidden) {
+        mcMktSwitchSession(sessId);
+    }
+}
+
+function mcMktRenderYearlySummary() {
+    if (!_mcMktYearlyData || !_mcMktYearlyData.timeline || _mcMktYearlyData.timeline.length === 0) return '';
+    var timeline = _mcMktYearlyData.timeline;
+    var year = _mcMktYearlyData.year || new Date().getFullYear();
+    var parts = (_kpiMkt.month || '').split('-').map(Number);
+    var selMonth = parts[1] || (new Date().getMonth() + 1);
+
+    var h = '<div style="margin-bottom:16px;padding:16px;background:linear-gradient(135deg,#fffbeb,#fef3c7);border-radius:14px;border:1px solid #fde68a;border-left:5px solid #d97706">';
+    h += '<div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="_mcMktToggleYearly()">';
+    h += '<div style="display:flex;align-items:center;gap:8px">';
+    h += '<span id="mcMktYearlyIcon" style="font-size:14px;color:#d97706">▶</span>';
+    h += '<span style="font-size:15px;font-weight:900;color:#78350f">🏆 Lịch Sử Cam Kết Năm ' + year + '</span>';
+    h += '</div></div>';
+    h += '<div id="mcMktYearlyBody" style="display:none;margin-top:14px">';
+    h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px">';
+    for (var m = 1; m <= 12; m++) {
+        var item = timeline.find(function(t) { return t.month === m; }) || { sessionCount: 0, avgPct: 0 };
+        var isCurrent = (m === selMonth);
+        var pctStr = (Math.round((item.avgPct || 0) * 10) / 10).toString().replace('.', ',');
+        var bg = isCurrent ? 'linear-gradient(135deg,#fef3c7,#fde68a)' : '#fff';
+        var border = isCurrent ? '#f59e0b' : '#fef3c7';
+
+        h += '<div style="background:' + bg + ';border:1.5px solid ' + border + ';border-radius:10px;padding:10px;text-align:center">';
+        h += '<div style="font-size:12px;font-weight:800;color:#78350f">Tháng ' + m + '</div>';
+        h += '<div style="font-size:16px;font-weight:900;color:#d97706;margin:4px 0">' + pctStr + '%</div>';
+        h += '<div style="font-size:10px;color:#92400e">' + item.sessionCount + ' cuộc họp</div>';
+        h += '</div>';
+    }
+    h += '</div></div></div>';
+    return h;
+}
+
+function _mcMktToggleYearly() {
+    var b = document.getElementById('mcMktYearlyBody');
+    var ic = document.getElementById('mcMktYearlyIcon');
+    if (!b) return;
+    var isHidden = b.style.display === 'none';
+    b.style.display = isHidden ? '' : 'none';
+    if (ic) ic.textContent = isHidden ? '▼' : '▶';
+}
+
+window.mcSaveMktNewSession = async function() {
+    var titleEl = document.getElementById('mcMktNewTitle');
+    var dateEl = document.getElementById('mcMktNewDate');
+    var title = titleEl ? titleEl.value.trim() : '';
+    var sDate = dateEl ? dateEl.value : '';
+    if (!title) return alert('Vui lòng nhập tiêu đề cuộc họp');
+    if (!sDate) return alert('Vui lòng chọn thời gian họp');
+
+    try {
+        var res = await apiCall('/api/meeting-commitments/sessions', 'POST', {
+            title: title,
+            meeting_date: sDate,
+            start_date: sDate,
+            source: 'kpimarketing'
+        });
+        document.getElementById('mcMktCreateOverlay').remove();
+        loadKpiMktMeetingCommit();
+        if (window.showToast) showToast('✅ Tạo cuộc họp mới thành công!', 'success');
+    } catch(e) { alert('Lỗi: ' + (e.message || '')); }
+};
+
+function mcMktSwitchSession(sessId) {
+    if (_mcMktSessions && _mcMktSessions.length > 0) {
+        var found = _mcMktSessions.find(function(s) { return s.id === sessId; });
+        if (found) {
+            _mcMktSession = found;
+            _mcMktCommitments = _mcMktAllCommitments.filter(function(c) { return c.session_id === sessId; });
+            if (typeof window !== 'undefined') {
+                window._mcSession = _mcMktSession;
+                window._mcCommitments = _mcMktCommitments;
+            }
+        }
+    }
+}
+
+async function mcMktCreateSession() {
+    var today = new Date().toISOString().split('T')[0];
+    var selYear = new Date().getFullYear();
+    var activeSession = null;
+    if (_mcMktSessions) {
+        activeSession = _mcMktSessions.find(function(s) {
+            var sDate = s.start_date ? s.start_date.split('T')[0] : (s.meeting_date ? s.meeting_date.split('T')[0] : '');
+            var eDate = s.end_date ? s.end_date.split('T')[0] : '';
+            if (!eDate && sDate) {
+                var ed = new Date(sDate);
+                ed.setDate(ed.getDate() + 7);
+                eDate = ed.toISOString().split('T')[0];
+            }
+            return (!sDate || today >= sDate) && (!eDate || today <= eDate);
+        });
+    }
+
+    var defaultEnd = new Date();
+    defaultEnd.setDate(defaultEnd.getDate() + 7);
+    var defaultEndStr = defaultEnd.toISOString().split('T')[0];
+    var sessionNo = (_mcMktSessions ? _mcMktSessions.length : 0) + 1;
+    var defaultTitle = 'Cuộc Họp Thứ ' + sessionNo + ' — KPI Marketing - ' + new Date().toLocaleDateString('vi-VN');
+
+    var overlay = document.createElement('div');
+    overlay.id = 'mcMktCreateOverlay';
+    overlay.className = 'kpi-mc-modal-overlay';
+    overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+
+    var h = '<div class="kpi-mc-modal" style="width:480px;max-width:95vw">';
+    h += '<div class="kpi-mc-modal-head" style="background:linear-gradient(135deg,#1e293b,#312e81);color:#fff">';
+    h += '<h3 style="margin:0;font-size:16px;font-weight:800;color:#ffffff">➕ Tạo Cuộc Họp KPI Marketing Ads</h3>';
+    h += '<button onclick="document.getElementById(\'mcMktCreateOverlay\').remove()" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer">✕</button>';
+    h += '</div>';
+    h += '<div class="kpi-mc-modal-body" style="padding:20px">';
+
+    if (activeSession) {
+        h += '<div style="margin-bottom:14px;padding:14px;background:#fef2f2;border:1.5px solid #fca5a5;border-radius:12px;color:#991b1b;font-size:12px;font-weight:700;line-height:1.5">';
+        h += '⚠️ <b>CẢNH BÁO TẠO CUỘC HỌP</b><br>';
+        h += 'Cuộc họp <b>"' + activeSession.title + '"</b> hiện tại chưa được đóng.<br>';
+        h += '<span style="font-weight:500;color:#7f1d1d">Vui lòng bấm nút <b>"🔒 Đóng Cuộc Họp"</b> tại cuộc họp hiện tại trước khi tạo cuộc họp mới!</span>';
+        h += '</div>';
+    }
+
+    h += '<div style="margin-bottom:14px"><label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:6px">Tiêu đề cuộc họp</label>';
+    h += '<input class="kpi-mc-input" id="mcMktNewTitle" value="' + (activeSession ? activeSession.title : defaultTitle) + '" ' + (activeSession ? 'readonly style="background:#f1f5f9;cursor:not-allowed"' : '') + ' style="width:100%;font-weight:700;color:#1e293b;padding:10px;border:1px solid #cbd5e1;border-radius:8px"></div>';
+
+    h += '<div style="margin-bottom:14px"><label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:6px">🚀 Thời gian mở (Từ ngày)</label>';
+    h += '<input class="kpi-mc-input" type="date" id="mcMktNewDate" value="' + today + '" ' + (activeSession ? 'disabled style="background:#f1f5f9"' : '') + ' style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px"></div>';
+    h += '</div>';
+
+    h += '<div class="kpi-mc-modal-foot" style="padding:14px 20px;border-top:1px solid #e5e7eb;display:flex;justify-content:flex-end;gap:10px">';
+    h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="document.getElementById(\'mcMktCreateOverlay\').remove()">Hủy</button>';
+    if (!activeSession) {
+        h += '<button class="kpi-mc-btn kpi-mc-btn-primary" onclick="mcSaveMktNewSession()" style="background:linear-gradient(135deg,#4338ca,#6366f1);color:#fff;font-weight:700;padding:8px 20px">Tạo Cuộc Họp</button>';
+    }
+    h += '</div></div>';
+
+    overlay.innerHTML = h;
+    document.body.appendChild(overlay);
+}
+
+window.mcSaveMktNewSession = async function() {
+    var titleEl = document.getElementById('mcMktNewTitle');
+    var dateEl = document.getElementById('mcMktNewDate');
+    var endDateEl = document.getElementById('mcMktNewEndDate');
+    var title = titleEl ? titleEl.value.trim() : '';
+    var sDate = dateEl ? dateEl.value : '';
+    var eDate = endDateEl ? endDateEl.value : '';
+    if (!title) return alert('Vui lòng nhập tiêu đề cuộc họp');
+    if (!sDate || !eDate) return alert('Vui lòng chọn thời gian họp');
+
+    try {
+        var res = await apiCall('/api/meeting-commitments/sessions', 'POST', {
+            title: title,
+            meeting_date: sDate,
+            start_date: sDate,
+            end_date: eDate,
+            source: 'kpimarketing'
+        });
+        if (res.error) return alert(res.error);
+        if (res.id) {
+            await apiCall('/api/meeting-commitments/sessions/' + res.id + '/departments', 'POST', { department_id: 6 });
+        }
+        var overlay = document.getElementById('mcMktCreateOverlay');
+        if (overlay) overlay.remove();
+        showToast('✅ Tạo cuộc họp Marketing thành công!', 'success');
+        if (typeof loadKpiMktMeetingCommit === 'function') loadKpiMktMeetingCommit();
+    } catch(e) { alert('Lỗi tạo cuộc họp: ' + (e.message || e)); }
+};
+
 /* WINDOW EXPORTS FOR ROUTER */
 if (typeof window !== 'undefined') {
+    window.loadKpiMktMeetingCommit = loadKpiMktMeetingCommit;
+    window.renderKpiMktMeetingCommit = renderKpiMktMeetingCommit;
+    window._mcMktToggleSection = _mcMktToggleSection;
+    window._mcMktToggleMonthly = _mcMktToggleMonthly;
+    window.mcMktToggleSession = mcMktToggleSession;
+    window._mcMktToggleYearly = _mcMktToggleYearly;
+    window.mcMktSwitchSession = mcMktSwitchSession;
+    window.mcMktCreateSession = mcMktCreateSession;
+
     window.renderKpimarketingPage = renderKpimarketingPage;
     window.loadKpimarketingData = loadKpimarketingData;
     window.kpiMktSetSegmentFilter = kpiMktSetSegmentFilter;

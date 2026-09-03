@@ -71,6 +71,7 @@ async function renderCamketcuochopPage(content) {
 .ckch-session-source{font-size:10px;padding:3px 10px;border-radius:10px;font-weight:700}
 .ckch-session-source.kpikdoanh{background:#eef2ff;color:#4338ca}
 .ckch-session-source.kpisale{background:#fef3c7;color:#92400e}
+.ckch-session-source.kpimarketing{background:#e0f2fe;color:#0369a1}
 .ckch-dept-tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
 .ckch-dept-tag{font-size:10px;padding:2px 8px;border-radius:8px;font-weight:700;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0}
 .ckch-session-stats{display:flex;gap:8px;align-items:center}
@@ -323,8 +324,8 @@ function _ckchRenderOverview() {
         var dt = new Date(s.meeting_date);
         var dateStr = dt.toLocaleDateString('vi-VN',{weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'});
         var pctBg = s.pct>=80?'background:#dcfce7;color:#166534':s.pct>=50?'background:#fef3c7;color:#92400e':'background:#fee2e2;color:#991b1b';
-        var sourceClass = (s.source||'').indexOf('sale')>-1 ? 'kpisale' : 'kpikdoanh';
-        var sourceLabel = (s.source==='kpisale') ? 'P.Sale' : ((s.source==='kpikdoanh') ? 'P.Kinh Doanh' : 'Toàn Công Ty');
+        var sourceClass = (s.source||'').indexOf('sale')>-1 ? 'kpisale' : ((s.source||'').indexOf('marketing')>-1 ? 'kpimarketing' : 'kpikdoanh');
+        var sourceLabel = (s.source==='kpisale') ? 'P.Sale' : ((s.source==='kpimarketing') ? 'KPI Marketing Ads' : ((s.source==='kpikdoanh') ? 'P.Kinh Doanh' : 'Toàn Công Ty'));
 
         var sDate = s.start_date ? s.start_date.split('T')[0] : (s.meeting_date ? s.meeting_date.split('T')[0] : '');
         var eDate = s.end_date ? s.end_date.split('T')[0] : '';
@@ -1134,7 +1135,8 @@ var _ckchAllRoles = [
 ];
 var _ckchSources = [
     { value: 'kpikdoanh', label: 'KPI P.Kinh Doanh' },
-    { value: 'kpisale', label: 'KPI P.Sale' }
+    { value: 'kpisale', label: 'KPI P.Sale' },
+    { value: 'kpimarketing', label: 'KPI Marketing Ads' }
 ];
 var _ckchPermTypes = [
     { value: 'create_session', label: '➕ Tạo Cuộc Họp', icon: '📋' },
