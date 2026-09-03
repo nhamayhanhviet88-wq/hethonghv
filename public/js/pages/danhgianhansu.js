@@ -452,23 +452,23 @@
 
         var html = `
             <div style="background: white; border-radius: 16px; border: 1px solid #cbd5e1; box-shadow: 0 4px 20px rgba(0,0,0,0.05); overflow: hidden; padding: 20px 24px;">
-                <!-- Header của Mục Phân Tích Direct -->
-                <div style="padding-bottom: 16px; margin-bottom: 20px; border-bottom: 2px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                <!-- Header Mục Phân Tích -->
+                <div style="padding-bottom: 14px; margin-bottom: 18px; border-bottom: 2px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
                     <div>
-                        <h2 style="font-size: 20px; font-weight: 900; color: #0f172a; margin: 0; display: flex; align-items: center; gap: 10px;">
-                            <span>📊</span> MỤC LỚN PHÂN TÍCH TỔNG HỢP NĂNG LỰC & LỖI VI PHẠM TỪNG NHÂN SỰ
+                        <h2 style="font-size: 19px; font-weight: 900; color: #0f172a; margin: 0; display: flex; align-items: center; gap: 8px;">
+                            <span>📊</span> MỤC LỚN PHÂN TÍCH NHÂN SỰ — CHỈ HIỂN THỊ NỘI DUNG CHÍNH
                         </h2>
-                        <p style="margin: 4px 0 0 0; font-size: 13px; color: #64748b;">
-                            Bảng tổng hợp phân tích chi tiết gom nhóm theo từng Nhân sự (Lỗi Vi Phạm & Điểm Cần Cải Thiện)
+                        <p style="margin: 3px 0 0 0; font-size: 12px; color: #64748b;">
+                            Thiết kế siêu gọn gàng cho hàng trăm nhân sự • Click vào từng mục để xem/chỉnh sửa đánh giá chi tiết
                         </p>
                     </div>
                     <div style="display: flex; align-items: center; gap: 8px;">
                         <span style="font-size: 12px; font-weight: 700; color: #475569;">🔍 Lọc Nhân Sự:</span>
-                        <input id="eeEmpSearchInputDirect" type="text" placeholder="Nhập tên nhân sự hoặc bộ phận..." style="padding: 7px 14px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12.5px; width: 260px; outline: none;" />
+                        <input id="eeEmpSearchInputDirect" type="text" placeholder="Gõ tên nhân sự hoặc bộ phận..." style="padding: 6px 12px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; width: 250px; outline: none;" />
                     </div>
                 </div>
 
-                <!-- Main Container for Cards -->
+                <!-- Container danh sách Nhân sự -->
                 <div id="eeEmployeeCardsDirectContainer">
         `;
 
@@ -481,7 +481,7 @@
             if (filtered.length === 0) {
                 return `
                     <div style="padding: 40px; text-align: center; color: #94a3b8; font-size: 14px;">
-                        <div style="font-size: 36px; margin-bottom: 8px;">📭</div>
+                        <div style="font-size: 32px; margin-bottom: 6px;">📭</div>
                         <div style="font-weight: 700;">Không tìm thấy nhân sự nào phù hợp trong kỳ này</div>
                     </div>
                 `;
@@ -490,81 +490,72 @@
             var cardHtml = '';
             filtered.forEach(function(emp) {
                 cardHtml += `
-                    <div style="background: #ffffff; border-radius: 14px; border: 1px solid #cbd5e1; box-shadow: 0 4px 14px rgba(0,0,0,0.04); margin-bottom: 20px; overflow: hidden;">
+                    <div style="background: #ffffff; border-radius: 12px; border: 1px solid #cbd5e1; box-shadow: 0 2px 8px rgba(0,0,0,0.03); margin-bottom: 14px; overflow: hidden;">
                         <!-- Header Thẻ Nhân Sự -->
-                        <div style="padding: 12px 20px; background: linear-gradient(135deg, #f8fafc, #f1f5f9); border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-                            <div style="display: flex; align-items: center; gap: 10px;">
-                                <div style="width: 38px; height: 38px; border-radius: 50%; background: #2563eb; color: white; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 16px;">
+                        <div style="padding: 10px 16px; background: linear-gradient(135deg, #f8fafc, #f1f5f9); border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <div style="width: 32px; height: 32px; border-radius: 50%; background: #2563eb; color: white; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 14px;">
                                     ${emp.name.charAt(0).toUpperCase()}
                                 </div>
                                 <div>
-                                    <div style="font-size: 15px; font-weight: 900; color: #0f172a; display: flex; align-items: center; gap: 8px;">
+                                    <div style="font-size: 14px; font-weight: 900; color: #0f172a; display: flex; align-items: center; gap: 8px;">
                                         <span>${emp.name}</span>
                                         ${_getDeptBadgeHtml(emp.dept)}
                                     </div>
-                                    <div style="font-size: 11.5px; color: #64748b; margin-top: 1px;">
-                                        Tổng cộng: <b>${emp.total} phiếu đánh giá</b>
+                                    <div style="font-size: 11px; color: #64748b; margin-top: 1px;">
+                                        Tổng: <b>${emp.total} phiếu đánh giá</b>
                                     </div>
                                 </div>
                             </div>
-                            <div style="display: flex; gap: 8px;">
-                                <span style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 800; background: #ffe4e6; color: #e11d48; border: 1px solid #fecdd3;">
+                            <div style="display: flex; gap: 6px;">
+                                <span style="padding: 3px 9px; border-radius: 16px; font-size: 11px; font-weight: 800; background: #ffe4e6; color: #e11d48; border: 1px solid #fecdd3;">
                                     ⚠️ ${emp.errors.length} Lỗi Vi Phạm
                                 </span>
-                                <span style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 800; background: #fef3c7; color: #d97706; border: 1px solid #fde68a;">
+                                <span style="padding: 3px 9px; border-radius: 16px; font-size: 11px; font-weight: 800; background: #fef3c7; color: #d97706; border: 1px solid #fde68a;">
                                     💡 ${emp.improvements.length} Cần Cải Thiện
                                 </span>
                             </div>
                         </div>
 
-                        <!-- Nội dung 2 Cột Phân Tích -->
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 18px 20px; background: #ffffff;">
+                        <!-- 2 Cột Phân Tích Siêu Gọn Gàng -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 12px 16px; background: #ffffff;">
                             
-                            <!-- CỘT BÊN TRÁI: LỖI VI PHẠM -->
-                            <div style="background: #fff1f2; border: 1px solid #fecdd3; border-radius: 12px; padding: 14px 16px;">
-                                <div style="font-size: 13px; font-weight: 900; color: #be123c; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1.5px solid #fda4af; padding-bottom: 8px;">
-                                    <span>⚠️ PHÂN LOẠI LỖI VI PHẠM (${emp.errors.length})</span>
+                            <!-- CỘT 1: LỖI VI PHẠM (CHỈ NỘI DUNG CHÍNH) -->
+                            <div style="background: #fff1f2; border: 1px solid #fecdd3; border-radius: 10px; padding: 10px 12px;">
+                                <div style="font-size: 12px; font-weight: 900; color: #be123c; margin-bottom: 8px; border-bottom: 1px solid #fda4af; padding-bottom: 4px;">
+                                    ⚠️ PHÂN LOẠI LỖI VI PHẠM (${emp.errors.length})
                                 </div>
-                                ${emp.errors.length === 0 ? `<div style="font-size: 12px; color: #9f1239; font-style: italic; padding: 8px 0;">Không có lỗi vi phạm nào</div>` : ''}
+                                ${emp.errors.length === 0 ? `<div style="font-size: 11.5px; color: #9f1239; font-style: italic; padding: 4px 0;">Không có lỗi vi phạm nào</div>` : ''}
                                 ${emp.errors.map(function(errItem) {
                                     return `
-                                        <div onclick="window._eeOpenDetailModal(${errItem.id});" style="background: white; border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; border: 1px solid #fca5a5; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 6px rgba(225,29,72,0.05);" onmouseover="this.style.borderColor='#e11d48'; this.style.transform='translateY(-1px)';" onmouseout="this.style.borderColor='#fca5a5'; this.style.transform='translateY(0)';">
-                                            <div style="font-size: 11px; color: #64748b; font-weight: 700; margin-bottom: 4px; display: flex; justify-content: space-between;">
-                                                <span>⏱️ Kỳ: ${_formatShortKy(errItem.month_year)}</span>
+                                        <div onclick="window._eeOpenDetailModal(${errItem.id});" title="Click để xem đầy đủ thông tin đánh giá & chỉnh sửa" style="background: white; border-radius: 8px; padding: 8px 12px; margin-bottom: 6px; border: 1px solid #fecdd3; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='#e11d48'; this.style.transform='translateX(2px)';" onmouseout="this.style.borderColor='#fecdd3'; this.style.transform='translateX(0)';">
+                                            <div style="font-size: 11px; color: #64748b; font-weight: 700; display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
+                                                <span>⏱️ ${_formatShortKy(errItem.month_year)}</span>
                                                 <span style="color: #be123c; font-weight: 800;">Hạn: ${_formatShortDate(errItem.resolution_deadline)}</span>
                                             </div>
-                                            <div style="font-size: 13px; font-weight: 800; color: #991b1b; margin-bottom: 6px; white-space: pre-wrap;">
+                                            <div style="font-size: 12.5px; font-weight: 800; color: #991b1b; white-space: pre-wrap; line-height: 1.35;">
                                                 ⚠️ ${errItem.improvement_errors || 'Không ghi nội dung lỗi'}
-                                            </div>
-                                            <div style="font-size: 12px; color: #334155; background: #fff1f2; padding: 6px 10px; border-radius: 6px; white-space: pre-wrap;">
-                                                🛠️ <b>Khắc phục:</b> ${errItem.remediation_action || 'Chưa ghi hành động'}
                                             </div>
                                         </div>
                                     `;
                                 }).join('')}
                             </div>
 
-                            <!-- CỘT BÊN PHẢI: CẦN CẢI THIỆN -->
-                            <div style="background: #fffbeb; border: 1px solid #fef3c7; border-radius: 12px; padding: 14px 16px;">
-                                <div style="font-size: 13px; font-weight: 900; color: #92400e; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1.5px solid #fde68a; padding-bottom: 8px;">
-                                    <span>💡 PHÂN LOẠI CẦN CẢI THIỆN (${emp.improvements.length})</span>
+                            <!-- CỘT 2: CẦN CẢI THIỆN (CHỈ NỘI DUNG CHÍNH) -->
+                            <div style="background: #fffbeb; border: 1px solid #fef3c7; border-radius: 10px; padding: 10px 12px;">
+                                <div style="font-size: 12px; font-weight: 900; color: #92400e; margin-bottom: 8px; border-bottom: 1px solid #fde68a; padding-bottom: 4px;">
+                                    💡 PHÂN LOẠI CẦN CẢI THIỆN (${emp.improvements.length})
                                 </div>
-                                ${emp.improvements.length === 0 ? `<div style="font-size: 12px; color: #92400e; font-style: italic; padding: 8px 0;">Không có nội dung cần cải thiện</div>` : ''}
+                                ${emp.improvements.length === 0 ? `<div style="font-size: 11.5px; color: #92400e; font-style: italic; padding: 4px 0;">Không có nội dung cần cải thiện</div>` : ''}
                                 ${emp.improvements.map(function(impItem) {
                                     return `
-                                        <div onclick="window._eeOpenDetailModal(${impItem.id});" style="background: white; border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; border: 1px solid #fde68a; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 6px rgba(217,119,6,0.05);" onmouseover="this.style.borderColor='#d97706'; this.style.transform='translateY(-1px)';" onmouseout="this.style.borderColor='#fde68a'; this.style.transform='translateY(0)';">
-                                            <div style="font-size: 11px; color: #64748b; font-weight: 700; margin-bottom: 4px; display: flex; justify-content: space-between;">
-                                                <span>⏱️ Kỳ: ${_formatShortKy(impItem.month_year)}</span>
+                                        <div onclick="window._eeOpenDetailModal(${impItem.id});" title="Click để xem đầy đủ thông tin đánh giá & chỉnh sửa" style="background: white; border-radius: 8px; padding: 8px 12px; margin-bottom: 6px; border: 1px solid #fef3c7; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='#d97706'; this.style.transform='translateX(2px)';" onmouseout="this.style.borderColor='#fef3c7'; this.style.transform='translateX(0)';">
+                                            <div style="font-size: 11px; color: #64748b; font-weight: 700; display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
+                                                <span>⏱️ ${_formatShortKy(impItem.month_year)}</span>
                                                 <span style="color: #059669; font-weight: 800;">${impItem.status === 'completed' ? '🟢 Hoàn thành' : '🟡 Đang theo dõi'}</span>
                                             </div>
-                                            <div style="font-size: 13px; font-weight: 800; color: #92400e; margin-bottom: 6px; white-space: pre-wrap;">
+                                            <div style="font-size: 12.5px; font-weight: 800; color: #92400e; white-space: pre-wrap; line-height: 1.35;">
                                                 💡 ${impItem.improvement_errors || 'Không ghi nội dung'}
-                                            </div>
-                                            <div style="font-size: 12px; color: #334155; background: #fffbeb; padding: 6px 10px; border-radius: 6px; margin-bottom: 4px; white-space: pre-wrap;">
-                                                📊 <b>Đánh giá QL:</b> ${impItem.manager_evaluation || 'Chưa ghi đánh giá'}
-                                            </div>
-                                            <div style="font-size: 12px; color: #334155; background: #f0fdf4; padding: 6px 10px; border-radius: 6px; white-space: pre-wrap;">
-                                                🎓 <b>Hướng đào tạo:</b> ${impItem.training_direction || 'Chưa ghi hướng đào tạo'}
                                             </div>
                                         </div>
                                     `;
@@ -596,151 +587,7 @@
         }
     }
 
-    // 📋 VIEW MODE 1: COMPACT FIT TABLE WITH READABLE 12PX FONT
-    function _eeRenderCompactTableView(container) {
-        var html = `
-            <div style="background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; overflow-x: auto; width: 100%;">
-                <table style="width: 100%; min-width: 1350px; border-collapse: collapse; text-align: left; font-size: 12px; table-layout: fixed;">
-                    <thead>
-                        <!-- Row 1: Category Groups -->
-                        <tr style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.3px; font-weight: 900; color: white;">
-                            <th rowspan="2" style="padding: 10px 2px; background: #1e3a8a; width: 5%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.2);">Kỳ</th>
-                            <th rowspan="2" style="padding: 10px 2px; background: #1e3a8a; width: 2.8%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.2);">STT</th>
-                            <th rowspan="2" style="padding: 10px 4px; background: #1e3a8a; width: 8.5%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Tên Nhân Sự">Tên Nhân Sự</th>
-                            <th rowspan="2" style="padding: 10px 4px; background: #1e3a8a; width: 5.8%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Bộ Phận">Bộ Phận</th>
-                            
-                            <!-- Group 1: Manager Eval (6 columns) -->
-                            <th colspan="6" style="padding: 8px 6px; background: #1e3a8a; text-align: center; vertical-align: middle; border-bottom: 1px solid rgba(255,255,255,0.2); border-right: 1px solid rgba(255,255,255,0.2);">👨‍💼 ĐÁNH GIÁ TỪ QUẢN LÝ</th>
-                            
-                            <!-- Group 2: Employee Opinion -->
-                            <th colspan="3" style="padding: 8px 6px; background: #be185d; text-align: center; vertical-align: middle; border-bottom: 1px solid rgba(255,255,255,0.2); border-right: 1px solid rgba(255,255,255,0.2);">💬 Ý KIẾN & CAM KẾT NHÂN SỰ</th>
-                            
-                            <!-- Group 3: Progress Report -->
-                            <th colspan="2" style="padding: 8px 6px; background: #0369a1; text-align: center; vertical-align: middle; border-bottom: 1px solid rgba(255,255,255,0.2);">📊 BÁO CÁO TIẾN ĐỘ</th>
-                        </tr>
-                        <!-- Row 2: Sub-headers centered with Multiline Linebreaks -->
-                        <tr style="font-size: 11px; text-transform: uppercase; font-weight: 800; color: white; text-align: center; vertical-align: middle;">
-                            <th style="padding: 8px 2px; background: #1d4ed8; width: 5.8%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Phân<br>Loại</th>
-                            <th style="padding: 8px 4px; background: #1d4ed8; width: 9%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Cải Thiện<br>/ Lỗi</th>
-                            <th style="padding: 8px 4px; background: #1d4ed8; width: 10.5%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Đánh Giá<br>Quản Lý</th>
-                            <th style="padding: 8px 4px; background: #1d4ed8; width: 9%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Nội Dung<br>Khắc Phục</th>
-                            <th style="padding: 8px 4px; background: #1d4ed8; width: 8.5%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Hướng<br>Đào Tạo</th>
-                            <th style="padding: 8px 4px; background: #1d4ed8; width: 8%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Quản Lý<br>Cam Kết</th>
-                            
-                            <th style="padding: 8px 4px; background: #db2777; width: 8%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Ý Kiến<br>Nhân Sự</th>
-                            <th style="padding: 8px 4px; background: #db2777; width: 5.8%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Hạn<br>Xử Lý</th>
-                            <th style="padding: 8px 4px; background: #db2777; width: 8%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Nhân Sự<br>Cam Kết</th>
-                            
-                            <th style="padding: 8px 4px; background: #0284c7; width: 7.8%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Quản Lý<br>Báo Cáo</th>
-                            <th style="padding: 8px 4px; background: #0284c7; width: 7.5%; text-align: center; vertical-align: middle; line-height: 1.3;">Nhân Sự<br>Báo Cáo</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-        `;
-
-        _eeState.items.forEach(function(item, idx) {
-            var shortKyHtml = _formatShortKy(item.month_year);
-            var typeBadgeHtml = (item.eval_type === 'Lỗi Vi Phạm')
-                ? '<span style="background: #fee2e2; color: #991b1b; padding: 2px 5px; border-radius: 4px; font-weight: 800; font-size: 10px; display: inline-block;">⚠️ LỖI</span>'
-                : '<span style="background: #fef3c7; color: #92400e; padding: 2px 5px; border-radius: 4px; font-weight: 800; font-size: 10px; display: inline-block;">💡 CẢI THIỆN</span>';
-
-            html += `
-                <tr style="border-bottom: 1px solid #f1f5f9; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background='white'" onclick="window._eeOpenDetailModal(${item.id})">
-                    <td style="padding: 6px 2px; text-align: center; font-weight: 700; color: #1e40af; background: #f0f9ff; border-right: 1px solid #e2e8f0; font-size: 11px; line-height: 1.25; word-break: break-word;">${shortKyHtml}</td>
-                    <td style="padding: 8px 2px; text-align: center; font-weight: 700; color: #64748b; border-right: 1px solid #e2e8f0; font-size: 11.5px;">${idx + 1}</td>
-                    <td style="padding: 8px 6px; font-weight: 800; color: #0f172a; border-right: 1px solid #e2e8f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px;" title="${item.employee_name}">${item.employee_name || '--'}</td>
-                    <td style="padding: 8px 4px; border-right: 1px solid #e2e8f0; text-align: center;" title="${item.department}">${_getDeptBadgeHtml(item.department)}</td>
-                    
-                    <!-- Group 1: Manager Evaluation (6 columns) -->
-                    <td style="padding: 8px 2px; border-right: 1px solid #e2e8f0; text-align: center;" title="${item.eval_type || 'Cần Cải Thiện'}">${typeBadgeHtml}</td>
-                    <td style="padding: 8px 6px; border-right: 1px solid #e2e8f0; color: #dc2626; font-weight: 600; word-break: break-word; line-height: 1.35; font-size: 12px; white-space: pre-wrap;" title="${item.improvement_errors}">${_clampText(item.improvement_errors)}</td>
-                    <td style="padding: 8px 6px; border-right: 1px solid #e2e8f0; color: #334155; word-break: break-word; line-height: 1.35; font-size: 12px; white-space: pre-wrap;" title="${item.manager_evaluation}">${_clampText(item.manager_evaluation)}</td>
-                    <td style="padding: 8px 6px; border-right: 1px solid #e2e8f0; color: #2563eb; font-weight: 600; word-break: break-word; line-height: 1.35; font-size: 12px; white-space: pre-wrap;" title="${item.remediation_action}">${_clampText(item.remediation_action)}</td>
-                    <td style="padding: 8px 6px; border-right: 1px solid #e2e8f0; color: #7c3aed; word-break: break-word; line-height: 1.35; font-size: 12px; white-space: pre-wrap;" title="${item.training_direction}">${_clampText(item.training_direction)}</td>
-                    <td style="padding: 8px 6px; border-right: 1px solid #e2e8f0; color: #059669; word-break: break-word; line-height: 1.35; font-size: 12px; white-space: pre-wrap;" title="${item.manager_commitment}">${_clampText(item.manager_commitment)}</td>
-                    
-                    <!-- Group 2: Employee Input -->
-                    <td style="padding: 8px 6px; background: #fdf2f8; border-right: 1px solid #fbcfe8; color: #be185d; word-break: break-word; line-height: 1.35; font-size: 12px; white-space: pre-wrap;" title="${item.employee_opinion}">${_clampText(item.employee_opinion)}</td>
-                    <td style="padding: 8px 4px; background: #fdf2f8; border-right: 1px solid #fbcfe8; font-weight: 700; color: #9d174d; font-size: 11.5px; text-align: center;" title="${item.resolution_deadline}">${_formatShortDate(item.resolution_deadline)}</td>
-                    <td style="padding: 8px 6px; background: #fdf2f8; border-right: 1px solid #fbcfe8; color: #be185d; word-break: break-word; line-height: 1.35; font-size: 12px; white-space: pre-wrap;" title="${item.employee_commitment}">${_clampText(item.employee_commitment)}</td>
-                    
-                    <!-- Group 3: Progress Report -->
-                    <td style="padding: 8px 6px; background: #f0f9ff; border-right: 1px solid #bae6fd; color: #0369a1; word-break: break-word; line-height: 1.35; font-size: 12px; white-space: pre-wrap;" title="${item.manager_report}">${_clampText(item.manager_report)}</td>
-                    <td style="padding: 8px 6px; background: #f0f9ff; color: #0369a1; word-break: break-word; line-height: 1.35; font-size: 12px; white-space: pre-wrap;" title="${item.employee_report}">${_clampText(item.employee_report)}</td>
-                </tr>
-            `;
-        });
-
-        html += `
-                    </tbody>
-                </table>
-            </div>
-            <div style="margin-top: 8px; font-size: 11px; color: #64748b; text-align: right; font-style: italic;">
-                💡 Mẹo: Bảng được tự động căn vừa 100% màn hình. Bấm vào bất kỳ hàng nào để xem hồ sơ chi tiết và Chỉnh Sửa / Xóa.
-            </div>
-        `;
-
-        container.innerHTML = html;
-    }
-
-    // 🎴 VIEW MODE 2: CARD GRID VIEW (EACH EMPLOYEE IN A BEAUTIFUL CARD)
-    function _eeRenderCardsView(container) {
-        var html = `<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 16px;">`;
-
-        _eeState.items.forEach(function(item, idx) {
-            html += `
-                <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 4px 14px rgba(0,0,0,0.04); overflow: hidden; display: flex; flex-direction: column;">
-                    <!-- Card Header -->
-                    <div style="padding: 14px 18px; background: linear-gradient(135deg, #1e3a8a, #1e40af); color: white; display: flex; justify-content: space-between; align-items: center;">
-                        <div>
-                            <div style="font-size: 16px; font-weight: 800; display: flex; align-items: center; gap: 8px;">
-                                <span>👤 ${item.employee_name}</span>
-                                ${_getDeptBadgeHtml(item.department)}
-                            </div>
-                            <div style="font-size: 11px; color: #93c5fd; margin-top: 2px;">📅 ${item.month_year || '--'} • STT: #${idx + 1}</div>
-                        </div>
-                        <div style="display: flex; gap: 6px;">
-                            <button onclick="window._eeOpenFormModal(${item.id})" style="padding: 6px 10px; background: rgba(255,255,255,0.2); color: white; border: none; border-radius: 6px; font-size: 12px; cursor: pointer;">✏️ Sửa</button>
-                            <button onclick="window._eeDelete(${item.id})" style="padding: 6px 10px; background: rgba(239,68,68,0.3); color: white; border: none; border-radius: 6px; font-size: 12px; cursor: pointer;">🗑️</button>
-                        </div>
-                    </div>
-
-                    <!-- Card Body -->
-                    <div style="padding: 16px; display: flex; flex-direction: column; gap: 12px; flex: 1;">
-                        <!-- Manager Section -->
-                        <div style="background: #f8fafc; padding: 12px; border-radius: 10px; border-left: 4px solid #1e40af;">
-                            <div style="font-size: 11px; font-weight: 800; color: #1e3a8a; text-transform: uppercase; margin-bottom: 6px;">👨‍💼 Đánh Giá Từ Quản Lý</div>
-                            <div style="font-size: 12px; color: #dc2626; font-weight: 700; margin-bottom: 4px; white-space: pre-wrap;">Phân loại: ${item.eval_type === 'Lỗi Vi Phạm' ? '<span style="background: #fee2e2; color: #991b1b; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 800;">⚠️ LỖI VI PHẠM</span>' : '<span style="background: #fef3c7; color: #92400e; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 800;">💡 CẦN CẢI THIỆN</span>'}<br>Nội dung: <span style="font-weight: 500; color: #334155;">${item.improvement_errors || '--'}</span></div>
-                            <div style="font-size: 12px; color: #334155; margin-bottom: 4px; white-space: pre-wrap;">📊 Đánh giá năng lực: <span>${item.manager_evaluation || '--'}</span></div>
-                            <div style="font-size: 12px; color: #2563eb; font-weight: 700; margin-bottom: 4px; white-space: pre-wrap;">🛠️ Khắc phục: <span style="font-weight: 500; color: #334155;">${item.remediation_action || '--'}</span></div>
-                            <div style="font-size: 12px; color: #7c3aed; font-weight: 700; margin-bottom: 4px; white-space: pre-wrap;">🎓 Hướng đào tạo: <span style="font-weight: 500; color: #334155;">${item.training_direction || '--'}</span></div>
-                            <div style="font-size: 12px; color: #059669; font-weight: 700; white-space: pre-wrap;">🤝 Cam kết QL: <span style="font-weight: 500; color: #334155;">${item.manager_commitment || '--'}</span></div>
-                        </div>
-
-                        <!-- Employee Section -->
-                        <div style="background: #fdf2f8; padding: 12px; border-radius: 10px; border-left: 4px solid #db2777;">
-                            <div style="font-size: 11px; font-weight: 800; color: #be185d; text-transform: uppercase; margin-bottom: 6px;">💬 Ý Kiến & Cam Kết Nhân Sự</div>
-                            <div style="font-size: 12px; color: #be185d; margin-bottom: 4px; white-space: pre-wrap;">Ý kiến: <span style="color: #334155;">${item.employee_opinion || '--'}</span></div>
-                            <div style="font-size: 12px; color: #be185d; margin-bottom: 4px;">⏰ Hạn xử lý: <span style="font-weight: 800; color: #9d174d;">${_formatShortDate(item.resolution_deadline)}</span></div>
-                            <div style="font-size: 12px; color: #be185d; white-space: pre-wrap;">Cam kết: <span style="color: #334155;">${item.employee_commitment || '--'}</span></div>
-                        </div>
-
-                        <!-- Progress Report Section -->
-                        <div style="background: #f0f9ff; padding: 12px; border-radius: 10px; border-left: 4px solid #0284c7;">
-                            <div style="font-size: 11px; font-weight: 800; color: #0369a1; text-transform: uppercase; margin-bottom: 6px;">📊 Báo Cáo Tiến Độ</div>
-                            <div style="font-size: 12px; color: #0369a1; margin-bottom: 4px; white-space: pre-wrap;">Quản lý báo cáo: <span style="color: #334155;">${item.manager_report || '--'}</span></div>
-                            <div style="font-size: 12px; color: #0369a1; white-space: pre-wrap;">Nhân sự báo cáo: <span style="color: #334155;">${item.employee_report || '--'}</span></div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        });
-
-        html += `</div>`;
-        container.innerHTML = html;
-    }
-
-    function _getFormattedNow() {
+        function _getFormattedNow() {
         var d = new Date();
         var hh = String(d.getHours()).padStart(2, '0');
         var mm = String(d.getMinutes()).padStart(2, '0');
