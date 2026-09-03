@@ -227,34 +227,34 @@
                         <tr style="font-size: 8.5px; text-transform: uppercase; letter-spacing: 0.2px; font-weight: 900; color: white;">
                             <th rowspan="2" style="padding: 6px 2px; background: #1e3a8a; width: 3.5%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.2);">Kỳ</th>
                             <th rowspan="2" style="padding: 6px 2px; background: #1e3a8a; width: 2.5%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.2);">STT</th>
-                            <th rowspan="2" style="padding: 6px 3px; background: #1e3a8a; width: 7%; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Họ Tên">Họ Tên</th>
-                            <th rowspan="2" style="padding: 6px 2px; background: #1e3a8a; width: 5.5%; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Bộ Phận">Bộ Phận</th>
+                            <th rowspan="2" style="padding: 6px 3px; background: #1e3a8a; width: 7%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Họ Tên">Họ Tên</th>
+                            <th rowspan="2" style="padding: 6px 2px; background: #1e3a8a; width: 5.5%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Bộ Phận">Bộ Phận</th>
                             
                             <!-- Group 1: Manager Eval -->
-                            <th colspan="5" style="padding: 5px 4px; background: #1e3a8a; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.2); border-right: 1px solid rgba(255,255,255,0.2);">👨‍💼 ĐÁNH GIÁ TỪ QUẢN LÝ</th>
+                            <th colspan="5" style="padding: 5px 4px; background: #1e3a8a; text-align: center; vertical-align: middle; border-bottom: 1px solid rgba(255,255,255,0.2); border-right: 1px solid rgba(255,255,255,0.2);">👨‍💼 ĐÁNH GIÁ TỪ QUẢN LÝ</th>
                             
                             <!-- Group 2: Employee Opinion -->
-                            <th colspan="3" style="padding: 5px 4px; background: #be185d; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.2); border-right: 1px solid rgba(255,255,255,0.2);">💬 Ý KIẾN & CAM KẾT NHÂN SỰ</th>
+                            <th colspan="3" style="padding: 5px 4px; background: #be185d; text-align: center; vertical-align: middle; border-bottom: 1px solid rgba(255,255,255,0.2); border-right: 1px solid rgba(255,255,255,0.2);">💬 Ý KIẾN & CAM KẾT NHÂN SỰ</th>
                             
                             <!-- Group 3: Progress Report -->
-                            <th colspan="2" style="padding: 5px 4px; background: #0369a1; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.2); border-right: 1px solid rgba(255,255,255,0.2);">📊 BÁO CÁO TIẾN ĐỘ</th>
+                            <th colspan="2" style="padding: 5px 4px; background: #0369a1; text-align: center; vertical-align: middle; border-bottom: 1px solid rgba(255,255,255,0.2); border-right: 1px solid rgba(255,255,255,0.2);">📊 BÁO CÁO TIẾN ĐỘ</th>
                             
                             <th rowspan="2" style="padding: 6px 2px; background: #334155; width: 5%; text-align: center; vertical-align: middle;">Thao Tác</th>
                         </tr>
-                        <!-- Row 2: Sub-headers with Multiline Linebreaks -->
+                        <!-- Row 2: Sub-headers centered with Multiline Linebreaks -->
                         <tr style="font-size: 8px; text-transform: uppercase; font-weight: 800; color: white; text-align: center; vertical-align: middle;">
-                            <th style="padding: 5px 2px; background: #1d4ed8; width: 8.5%; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.25;">Cải Thiện<br>/ Lỗi</th>
-                            <th style="padding: 5px 2px; background: #1d4ed8; width: 10.5%; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.25;">Đánh Giá<br>Quản Lý</th>
-                            <th style="padding: 5px 2px; background: #1d4ed8; width: 9%; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.25;">Nội Dung<br>Khắc Phục</th>
-                            <th style="padding: 5px 2px; background: #1d4ed8; width: 8.5%; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.25;">Hướng<br>Đào Tạo</th>
-                            <th style="padding: 5px 2px; background: #1d4ed8; width: 8%; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.25;">Quản Lý<br>Cam Kết</th>
+                            <th style="padding: 5px 2px; background: #1d4ed8; width: 8.5%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.25;">Cải Thiện<br>/ Lỗi</th>
+                            <th style="padding: 5px 2px; background: #1d4ed8; width: 10.5%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.25;">Đánh Giá<br>Quản Lý</th>
+                            <th style="padding: 5px 2px; background: #1d4ed8; width: 9%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.25;">Nội Dung<br>Khắc Phục</th>
+                            <th style="padding: 5px 2px; background: #1d4ed8; width: 8.5%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.25;">Hướng<br>Đào Tạo</th>
+                            <th style="padding: 5px 2px; background: #1d4ed8; width: 8%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.25;">Quản Lý<br>Cam Kết</th>
                             
-                            <th style="padding: 5px 2px; background: #db2777; width: 8%; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.25;">Ý Kiến<br>Nhân Sự</th>
-                            <th style="padding: 5px 2px; background: #db2777; width: 5.5%; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.25;">Hạn<br>Xử Lý</th>
-                            <th style="padding: 5px 2px; background: #db2777; width: 8%; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.25;">Nhân Sự<br>Cam Kết</th>
+                            <th style="padding: 5px 2px; background: #db2777; width: 8%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.25;">Ý Kiến<br>Nhân Sự</th>
+                            <th style="padding: 5px 2px; background: #db2777; width: 5.5%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.25;">Hạn<br>Xử Lý</th>
+                            <th style="padding: 5px 2px; background: #db2777; width: 8%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.25;">Nhân Sự<br>Cam Kết</th>
                             
-                            <th style="padding: 5px 2px; background: #0284c7; width: 8%; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.25;">Quản Lý<br>Báo Cáo</th>
-                            <th style="padding: 5px 2px; background: #0284c7; width: 8%; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.25;">Nhân Sự<br>Báo Cáo</th>
+                            <th style="padding: 5px 2px; background: #0284c7; width: 8%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.25;">Quản Lý<br>Báo Cáo</th>
+                            <th style="padding: 5px 2px; background: #0284c7; width: 8%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.25;">Nhân Sự<br>Báo Cáo</th>
                         </tr>
                     </thead>
                     <tbody>
