@@ -1529,7 +1529,7 @@ var _sidebarSectionKeys = [];
 
 // Parent group definitions: parent name -> list of child section names (in order)
 var PARENT_SECTIONS = [
-    { name: 'KẾT QUẢ & VINH DANH', sections: ['BÁO CÁO', 'TỔNG QUAN', 'BXH & GIẢI THƯỞNG'] },
+    { name: 'KẾT QUẢ & VINH DANH', sections: ['BÁO CÁO', 'TỔNG QUAN', 'CUỘC HỌP CÔNG TY', 'BXH & GIẢI THƯỞNG'] },
     { name: 'QUẢN LÝ CÔNG VIỆC', sections: ['CÔNG VIỆC HẰNG NGÀY', 'CÔNG VIỆC CHĂM SÓC KHÁCH'] },
     { name: 'NỘI QUY & QUY TẮC LÀM VIỆC', sections: ['NỘI QUY & TƯ LIỆU NỘI BỘ', 'QUY TẮC & CHÍNH SÁCH KH'] },
     { name: 'HÀNH CHÍNH & NHÂN SỰ', sections: ['QUẢN TRỊ NHÂN SỰ'] },
@@ -1571,6 +1571,13 @@ function renderSidebar() {
         if (!sectionItems[item.section]) { sectionItems[item.section] = []; sectionOrder.push(item.section); }
         sectionItems[item.section].push(item);
     });
+
+    if (!sectionItems['CUỘC HỌP CÔNG TY']) {
+        sectionItems['CUỘC HỌP CÔNG TY'] = [];
+        if (sectionOrder.indexOf('CUỘC HỌP CÔNG TY') === -1) {
+            sectionOrder.push('CUỘC HỌP CÔNG TY');
+        }
+    }
 
     _sidebarSectionKeys = sectionOrder;
 
