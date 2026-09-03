@@ -3,6 +3,7 @@
     var _eeState = {
         monthYear: 'Tháng ' + (new Date().getMonth() + 1) + '/' + new Date().getFullYear(),
         department: 'all',
+        employeeName: 'all',
         status: 'all',
         statFilter: 'all', // 'all' | 'pending_employee' | 'pending_progress' | 'completed_progress'
         search: '',
@@ -95,6 +96,14 @@
                                 ${DEPARTMENTS.map(d => `<option value="${d}">${d}</option>`).join('')}
                             </select>
                         </div>
+
+                        <!-- Employee Name Filter -->
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <label style="font-size: 12px; font-weight: 700; color: #475569;">👤 Nhân sự:</label>
+                            <select id="eeFilterEmployee" onchange="window._eeOnFilterChange()" style="padding: 7px 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; font-weight: 600; background: #f8fafc; outline: none; max-width: 180px;">
+                                <option value="all">Tất Cả Nhân Sự</option>
+                            </select>
+                        </div>
                         
                         <!-- Active Stat Filter Indicator -->
                         <div id="eeActiveStatFilterTag" style="display: none; align-items: center; gap: 6px; background: #eff6ff; color: #1d4ed8; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; border: 1px solid #bfdbfe;">
@@ -148,6 +157,9 @@
             var params = new URLSearchParams();
             params.append('month_year', _eeState.monthYear);
             params.append('department', _eeState.department);
+            if (_eeState.employeeName && _eeState.employeeName !== 'all') {
+                params.append('employee_name', _eeState.employeeName);
+            }
             params.append('status', _eeState.status);
             if (_eeState.statFilter && _eeState.statFilter !== 'all') {
                 params.append('stat_filter', _eeState.statFilter);
@@ -162,12 +174,37 @@
                 _eeState.stats = statsRes.stats;
             }
 
+            _eePopulateEmployeeDropdown();
             _eeRenderStats();
             _eeRenderCurrentView();
         } catch(err) {
             console.error('Error loading employee evaluation data:', err);
             showToast('⚠️ Không thể tải dữ liệu đánh giá nhân sự', 'error');
         }
+    }
+
+    function _eePopulateEmployeeDropdown() {
+        var selectEl = document.getElementById('eeFilterEmployee');
+        if (!selectEl) return;
+
+        var currentVal = _eeState.employeeName;
+        var html = '<option value="all">Tất Cả Nhân Sự</option>';
+
+        var namesSet = new Set();
+        (_eeState.users || []).forEach(function(u) {
+            var name = u.full_name || u.name || u.username;
+            if (name) namesSet.add(name.trim());
+        });
+        (_eeState.items || []).forEach(function(i) {
+            if (i.employee_name) namesSet.add(i.employee_name.trim());
+        });
+
+        Array.from(namesSet).sort().forEach(function(n) {
+            var selected = (n === currentVal) ? 'selected' : '';
+            html += `<option value="${n}" ${selected}>${n}</option>`;
+        });
+
+        selectEl.innerHTML = html;
     }
 
     window._eeSelectStatFilter = function(filter) {
@@ -498,8 +535,10 @@
     window._eeOnFilterChange = function() {
         var m = document.getElementById('eeFilterMonth');
         var d = document.getElementById('eeFilterDept');
+        var e = document.getElementById('eeFilterEmployee');
         if (m) _eeState.monthYear = m.value;
         if (d) _eeState.department = d.value;
+        if (e) _eeState.employeeName = e.value;
         _eeLoadData();
     };
 

@@ -35,7 +35,7 @@ async function employeeEvaluationsRoutes(fastify, options) {
     // GET /api/employee-evaluations — List evaluations with filters
     fastify.get('/api/employee-evaluations', async (request, reply) => {
         try {
-            const { month_year, department, status, stat_filter, search } = request.query || {};
+            const { month_year, department, employee_name, status, stat_filter, search } = request.query || {};
             let sql = `SELECT * FROM employee_evaluations WHERE 1=1`;
             const params = [];
 
@@ -46,6 +46,10 @@ async function employeeEvaluationsRoutes(fastify, options) {
             if (department && department !== 'all') {
                 sql += ` AND department = ?`;
                 params.push(department);
+            }
+            if (employee_name && employee_name !== 'all') {
+                sql += ` AND employee_name = ?`;
+                params.push(employee_name);
             }
             if (status && status !== 'all') {
                 sql += ` AND status = ?`;
