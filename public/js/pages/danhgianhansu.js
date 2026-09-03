@@ -130,9 +130,9 @@
 
                     <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
                         <!-- Search Input -->
-                        <div style="position: relative; width: 220px;">
-                            <input id="eeSearchInput" type="text" placeholder="🔍 Tìm nhân sự, lỗi..." oninput="window._eeOnSearchInput()" style="width: 100%; padding: 7px 10px 7px 30px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; outline: none; box-sizing: border-box;">
-                            <span style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 12px;">🔍</span>
+                        <div style="position: relative; width: 320px;">
+                            <input id="eeSearchInput" type="text" placeholder="Tìm nhân sự, bộ phận, nội dung lỗi..." oninput="window._eeOnSearchInput()" style="width: 100%; padding: 7px 10px 7px 32px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; outline: none; box-sizing: border-box; transition: border-color 0.2s, box-shadow 0.2s;" onfocus="this.style.borderColor='#2563eb'; this.style.boxShadow='0 0 0 3px rgba(37,99,235,0.1)';" onblur="this.style.borderColor='#cbd5e1'; this.style.boxShadow='none';">
+                            <span style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #64748b; font-size: 13px; pointer-events: none;">🔍</span>
                         </div>
 
                         <!-- View Mode Switcher -->

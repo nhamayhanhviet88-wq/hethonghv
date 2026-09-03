@@ -87,8 +87,20 @@ async function employeeEvaluationsRoutes(fastify, options) {
 
             if (search && search.trim() !== '') {
                 const s = `%${search.trim()}%`;
-                sql += ` AND (employee_name LIKE ? OR department LIKE ? OR improvement_errors LIKE ? OR manager_evaluation LIKE ? OR remediation_action LIKE ?)`;
-                params.push(s, s, s, s, s);
+                sql += ` AND (
+                    employee_name LIKE ? OR 
+                    department LIKE ? OR 
+                    improvement_errors LIKE ? OR 
+                    manager_evaluation LIKE ? OR 
+                    remediation_action LIKE ? OR
+                    training_direction LIKE ? OR
+                    manager_commitment LIKE ? OR
+                    employee_opinion LIKE ? OR
+                    employee_commitment LIKE ? OR
+                    manager_report LIKE ? OR
+                    employee_report LIKE ?
+                )`;
+                params.push(s, s, s, s, s, s, s, s, s, s, s);
             }
 
             sql += ` ORDER BY id DESC`;
