@@ -1195,7 +1195,7 @@
 
         var nowFormatted = _getFormattedNow();
         var timeValue = item ? (item.month_year || nowFormatted) : nowFormatted;
-        var currentEvalType = item ? (item.eval_type || 'Cần Cải Thiện') : 'Cần Cải Thiện';
+        var currentEvalType = item ? (item.eval_type || '') : '';
 
         modalContainer.innerHTML = `
             <div style="position: fixed; inset: 0; background: rgba(15,23,42,0.65); backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 20px;">
@@ -1259,6 +1259,7 @@
                                 <div style="grid-column: span 2;">
                                     <label style="display: block; font-size: 12px; font-weight: 700; color: #dc2626; margin-bottom: 6px;">🏷️ 3. Phân Loại Đánh Giá <span style="color: #dc2626;">*</span></label>
                                     <select id="formEvalType" style="width: 100%; padding: 9px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; box-sizing: border-box; font-weight: 700;" onchange="window._eeCheckSectionLocks()">
+                                        <option value="">-- Chọn Phân Loại Đánh Giá --</option>
                                         <option value="Cần Cải Thiện" ${currentEvalType === 'Cần Cải Thiện' ? 'selected' : ''}>💡 Cần Cải Thiện</option>
                                         <option value="Lỗi Vi Phạm" ${currentEvalType === 'Lỗi Vi Phạm' ? 'selected' : ''}>⚠️ Lỗi Vi Phạm</option>
                                     </select>
