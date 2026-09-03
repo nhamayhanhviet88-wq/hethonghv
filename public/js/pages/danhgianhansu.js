@@ -1372,16 +1372,13 @@
 
     // Modal Form (Add / Edit 3-Section Sequential Flow)
     window._eeOpenFormModal = async function(editId, targetSection, isQuickUpdate) {
+        var item = editId ? _eeState.items.find(i => i.id === editId) : null;
         _eeState.currentIsQuickUpdate = Boolean(isQuickUpdate);
         _eeState.currentTargetSection = targetSection || null;
+        _eeState.initialSec1HasData = Boolean(item && item.id);
+        _eeState.initialSec2HasData = Boolean(item && (item.employee_opinion || item.resolution_deadline || item.employee_commitment));
+        _eeState.initialSec3HasData = Boolean(item && (item.manager_report || item.employee_report));
 
-        if (!_eeState.users || _eeState.users.length === 0) {
-            try {
-                var uRes = await apiCall('/api/users/dropdown');
-                _eeState.users = (uRes && uRes.users) ? uRes.users : [];
-            } catch(e) {}
-        }
-        var item = editId ? _eeState.items.find(i => i.id === editId) : null;
         var modalContainer = document.getElementById('eeModalContainer');
         if (!modalContainer) return;
 
@@ -1837,6 +1834,9 @@
     window._eeCheckSectionLocks = function() {
         var isQuickUpdate = Boolean(_eeState.currentIsQuickUpdate);
         var targetSection = _eeState.currentTargetSection;
+        var initialSec1HasData = Boolean(_eeState.initialSec1HasData);
+        var initialSec2HasData = Boolean(_eeState.initialSec2HasData);
+        var initialSec3HasData = Boolean(_eeState.initialSec3HasData);
 
         var dept = document.getElementById('formDepartment') ? document.getElementById('formDepartment').value : '';
         var empSel = document.getElementById('formEmpSelect') ? document.getElementById('formEmpSelect').value : '';
@@ -1855,20 +1855,18 @@
         var sec1Badge = document.getElementById('sec1Badge');
         var sec1Inputs = sec1Card ? sec1Card.querySelectorAll('input, select, textarea') : [];
 
-        // Check if Section 2 already has existing data
+        // Check if Section 2 is complete
         var empOpinion = document.getElementById('formEmpOpinion') ? document.getElementById('formEmpOpinion').value.trim() : '';
         var deadline = document.getElementById('formResolutionDeadline') ? document.getElementById('formResolutionDeadline').value : '';
         var empCommit = document.getElementById('formEmpCommitment') ? document.getElementById('formEmpCommitment').value.trim() : '';
-        var sec2HasData = Boolean(empOpinion || deadline || empCommit);
         var sec2Complete = sec1Complete && Boolean(empOpinion && deadline && empCommit);
 
-        // Check if Section 3 already has existing data
+        // Check if Section 3 has data
         var managerReport = document.getElementById('formManagerReport') ? document.getElementById('formManagerReport').value.trim() : '';
         var empReport = document.getElementById('formEmpReport') ? document.getElementById('formEmpReport').value.trim() : '';
-        var sec3HasData = Boolean(managerReport || empReport);
 
         // --- SECTION 1 LOCKING LOGIC ---
-        if (isQuickUpdate && sec1Complete) {
+        if (isQuickUpdate && initialSec1HasData && sec1Complete) {
             sec1Inputs.forEach(el => {
                 el.setAttribute('disabled', 'disabled');
                 el.style.background = '#f1f5f9';
@@ -1912,8 +1910,8 @@
 
         if (sec1Complete) {
             if (sec2Card) { sec2Card.style.opacity = '1'; sec2Card.style.pointerEvents = 'auto'; }
-            if (isQuickUpdate && sec2HasData) {
-                // If in Quick Update mode and Section 2 ALREADY HAS DATA -> LOCK IT!
+            if (isQuickUpdate && initialSec2HasData) {
+                // If in Quick Update mode and Section 2 ALREADY HAD DATA WHEN LOADED FROM DB -> LOCK IT!
                 sec2Inputs.forEach(el => {
                     el.setAttribute('disabled', 'disabled');
                     el.style.background = '#f1f5f9';
@@ -1951,8 +1949,8 @@
 
         if (sec2Complete) {
             if (sec3Card) { sec3Card.style.opacity = '1'; sec3Card.style.pointerEvents = 'auto'; }
-            if (isQuickUpdate && sec3HasData) {
-                // If in Quick Update mode and Section 3 ALREADY HAS DATA -> LOCK IT!
+            if (isQuickUpdate && initialSec3HasData) {
+                // If in Quick Update mode and Section 3 ALREADY HAD DATA WHEN LOADED FROM DB -> LOCK IT!
                 sec3Inputs.forEach(el => {
                     el.setAttribute('disabled', 'disabled');
                     el.style.background = '#f1f5f9';
