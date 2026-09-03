@@ -110,7 +110,6 @@
                                 <!-- Teal Block: Report & Progress -->
                                 <th style="padding: 10px 8px; background: #0284c7; color: white; border-right: 1px solid rgba(255,255,255,0.1); min-width: 105px;">Quản Lý Báo Cáo</th>
                                 <th style="padding: 10px 8px; background: #0284c7; color: white; border-right: 1px solid rgba(255,255,255,0.1); min-width: 105px;">Nhân Sự Báo Cáo</th>
-                                <th style="padding: 10px 8px; background: #0284c7; color: white; border-right: 1px solid rgba(255,255,255,0.1); min-width: 85px; text-align: center;">Tỷ Lệ Khắc Phục</th>
                                 <th style="padding: 10px 6px; background: #334155; color: white; width: 75px; text-align: center;">Thao Tác</th>
                             </tr>
                         </thead>
@@ -181,7 +180,7 @@
             <div style="background: white; border-radius: 12px; padding: 16px; border: 1px solid #fee2e2; box-shadow: 0 2px 8px rgba(239,68,68,0.06); display: flex; align-items: center; gap: 14px;">
                 <div style="width: 44px; height: 44px; border-radius: 10px; background: #fee2e2; color: #dc2626; display: flex; align-items: center; justify-content: center; font-size: 20px;">🔴</div>
                 <div>
-                    <div style="font-size: 11px; font-weight: 700; color: #991b1b; text-transform: uppercase;">CHƯA XỬ LÝ (0%)</div>
+                    <div style="font-size: 11px; font-weight: 700; color: #991b1b; text-transform: uppercase;">CHƯA XỬ LÝ</div>
                     <div style="font-size: 22px; font-weight: 900; color: #dc2626;">${s.pending}</div>
                 </div>
             </div>
@@ -197,16 +196,8 @@
             <div style="background: white; border-radius: 12px; padding: 16px; border: 1px solid #d1fae5; box-shadow: 0 2px 8px rgba(16,185,129,0.06); display: flex; align-items: center; gap: 14px;">
                 <div style="width: 44px; height: 44px; border-radius: 10px; background: #d1fae5; color: #059669; display: flex; align-items: center; justify-content: center; font-size: 20px;">🟢</div>
                 <div>
-                    <div style="font-size: 11px; font-weight: 700; color: #065f46; text-transform: uppercase;">HOÀN THÀNH (100%)</div>
+                    <div style="font-size: 11px; font-weight: 700; color: #065f46; text-transform: uppercase;">HOÀN THÀNH</div>
                     <div style="font-size: 22px; font-weight: 900; color: #059669;">${s.completed}</div>
-                </div>
-            </div>
-
-            <div style="background: white; border-radius: 12px; padding: 16px; border: 1px solid #e0e7ff; box-shadow: 0 2px 8px rgba(99,102,241,0.06); display: flex; align-items: center; gap: 14px;">
-                <div style="width: 44px; height: 44px; border-radius: 10px; background: #e0e7ff; color: #4f46e5; display: flex; align-items: center; justify-content: center; font-size: 20px;">📊</div>
-                <div style="flex: 1;">
-                    <div style="font-size: 11px; font-weight: 700; color: #3730a3; text-transform: uppercase;">TỶ LỆ KHẮC PHỤC TRUNG BÌNH</div>
-                    <div style="font-size: 22px; font-weight: 900; color: #4f46e5;">${s.avgRate}%</div>
                 </div>
             </div>
         `;
@@ -219,7 +210,7 @@
         if (_eeState.items.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="16" style="padding: 40px; text-align: center; color: #94a3b8; font-size: 14px;">
+                    <td colspan="15" style="padding: 40px; text-align: center; color: #94a3b8; font-size: 14px;">
                         <div style="font-size: 32px; margin-bottom: 8px;">📭</div>
                         Không có dữ liệu đánh giá nhân sự nào khớp với bộ lọc.
                     </td>
@@ -230,19 +221,6 @@
 
         var html = '';
         _eeState.items.forEach(function(item, idx) {
-            var rate = Number(item.completion_rate) || 0;
-            var badgeBg = '#f1f5f9';
-            var badgeColor = '#475569';
-            var badgeText = rate + '%';
-
-            if (rate >= 100) {
-                badgeBg = '#d1fae5'; badgeColor = '#047857'; badgeText = '100% Hoàn Thành';
-            } else if (rate > 0) {
-                badgeBg = '#fef3c7'; badgeColor = '#b45309'; badgeText = rate + '% Đang XL';
-            } else {
-                badgeBg = '#fee2e2'; badgeColor = '#b91c1c'; badgeText = '0% Chưa XL';
-            }
-
             html += `
                 <tr style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
                     <td style="padding: 10px 8px; text-align: center; font-weight: 700; color: #1e40af; background: #f0f9ff; border-right: 1px solid #e2e8f0;">${item.month_year || '--'}</td>
@@ -263,14 +241,11 @@
                     <!-- Teal Section: Progress Report -->
                     <td style="padding: 10px; background: #f0f9ff; border-right: 1px solid #bae6fd; color: #0369a1;">${item.manager_report || '--'}</td>
                     <td style="padding: 10px; background: #f0f9ff; border-right: 1px solid #bae6fd; color: #0369a1;">${item.employee_report || '--'}</td>
-                    <td style="padding: 10px; background: #f0f9ff; border-right: 1px solid #bae6fd; text-align: center;">
-                        <span style="padding: 4px 10px; border-radius: 20px; background: ${badgeBg}; color: ${badgeColor}; font-size: 11px; font-weight: 800; display: inline-block;">${badgeText}</span>
-                    </td>
                     
                     <!-- Actions -->
                     <td style="padding: 10px; text-align: center;">
                         <div style="display: flex; gap: 6px; justify-content: center;">
-                            <button onclick="window._eeOpenReportModal(${item.id})" title="Cập Nhật Tiến Độ / Báo Cáo" style="padding: 5px 8px; background: #e0f2fe; color: #0284c7; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 700;">📊</button>
+                            <button onclick="window._eeOpenReportModal(${item.id})" title="Cập Nhật Báo Cáo" style="padding: 5px 8px; background: #e0f2fe; color: #0284c7; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 700;">📊</button>
                             <button onclick="window._eeOpenFormModal(${item.id})" title="Chỉnh Sửa Toàn Bộ" style="padding: 5px 8px; background: #f1f5f9; color: #475569; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 700;">✏️</button>
                             <button onclick="window._eeDelete(${item.id})" title="Xóa" style="padding: 5px 8px; background: #fee2e2; color: #dc2626; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 700;">🗑️</button>
                         </div>
@@ -597,8 +572,7 @@
                 'Time Xử Lý Của Nhân Sự': item.resolution_deadline || '',
                 'Cam Kết Của Nhân Sự': item.employee_commitment || '',
                 'Quản Lý Báo Cáo': item.manager_report || '',
-                'Nhân Sự Báo Cáo': item.employee_report || '',
-                'Tỷ Lệ Khắc Phục (%)': (item.completion_rate || 0) + '%'
+                'Nhân Sự Báo Cáo': item.employee_report || ''
             };
         });
 
