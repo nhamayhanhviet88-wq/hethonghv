@@ -588,13 +588,14 @@
             }
 
             var rowsHtml = '';
-            filtered.forEach(function(emp) {
+            filtered.forEach(function(emp, rIdx) {
+                var rowBg = (rIdx % 2 === 0) ? '#ffffff' : '#f8fafc';
                 rowsHtml += `
-                    <tr style="border-bottom: 1px solid #cbd5e1; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
+                    <tr style="border-bottom: 2.5px solid #cbd5e1; background: ${rowBg}; transition: background 0.15s;" onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background='${rowBg}'">
                         <!-- Col 1: Employee info -->
-                        <td style="padding: 8px 12px; vertical-align: top; border-right: 1px solid #cbd5e1; background: #fafafa;">
-                            <div style="font-size: 13px; font-weight: 900; color: #0f172a; display: flex; align-items: center; gap: 6px;">
-                                <span>${emp.name}</span>
+                        <td style="padding: 10px 12px; vertical-align: top; border-right: 1.5px solid #cbd5e1; background: #fafafa;">
+                            <div style="font-size: 13.5px; font-weight: 900; color: #0f172a; display: flex; align-items: center; gap: 6px;">
+                                <span>👤 ${emp.name}</span>
                                 ${_getDeptBadgeHtml(emp.dept)}
                             </div>
                             <div style="font-size: 11px; color: #64748b; margin-top: 4px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
@@ -604,30 +605,32 @@
                         </td>
 
                         <!-- Col 2: Violations list -->
-                        <td style="padding: 6px 10px; vertical-align: top; border-right: 1px solid #cbd5e1; background: #fff1f2;">
+                        <td style="padding: 8px 10px; vertical-align: top; border-right: 1.5px solid #cbd5e1; background: #fff1f2;">
                             ${emp.errors.length === 0 ? '<div style="font-size: 11.5px; color: #9f1239; font-style: italic; padding: 4px 0;">Không có lỗi vi phạm</div>' : ''}
                             ${emp.errors.map(function(errItem) {
                                 return `
-                                    <div onclick="window._eeOpenDetailModal(${errItem.id});" title="Click để xem chi tiết đầy đủ" style="padding: 4px 8px; margin-bottom: 4px; background: white; border-radius: 5px; border-left: 3px solid #e11d48; border-top: 1px solid #fecdd3; border-right: 1px solid #fecdd3; border-bottom: 1px solid #fecdd3; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 8px; transition: all 0.15s;" onmouseover="this.style.background='#ffe4e6'; this.style.transform='translateX(2px)';" onmouseout="this.style.background='white'; this.style.transform='translateX(0)';">
+                                    <div onclick="window._eeOpenDetailModal(${errItem.id});" title="Click để xem chi tiết đầy đủ" style="padding: 5px 9px; margin-bottom: 5px; background: white; border-radius: 6px; border-left: 3.5px solid #e11d48; border-top: 1px solid #fecdd3; border-right: 1px solid #fecdd3; border-bottom: 1px solid #fecdd3; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 8px; transition: all 0.15s; box-shadow: 0 1px 3px rgba(0,0,0,0.03);" onmouseover="this.style.background='#ffe4e6'; this.style.transform='translateX(2px)';" onmouseout="this.style.background='white'; this.style.transform='translateX(0)';">
                                         <div style="font-size: 12px; font-weight: 800; color: #991b1b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;">
+                                            <span style="background: #be123c; color: white; padding: 1px 6px; border-radius: 4px; font-weight: 900; font-size: 10.5px; margin-right: 6px; display: inline-block;">👤 ${emp.name}</span>
                                             ⚠️ <span style="font-size: 10.5px; color: #64748b; font-weight: 600;">[${_formatShortKy(errItem.month_year)}]</span> ${errItem.improvement_errors || 'Lỗi vi phạm'}
                                         </div>
-                                        <span style="font-size: 10px; font-weight: 800; color: #be123c; flex-shrink: 0; background: #fff1f2; padding: 1px 5px; border-radius: 4px;">Hạn: ${_formatShortDate(errItem.resolution_deadline)}</span>
+                                        <span style="font-size: 10px; font-weight: 800; color: #be123c; flex-shrink: 0; background: #fff1f2; padding: 2px 6px; border-radius: 4px; border: 1px solid #fecdd3;">Hạn: ${_formatShortDate(errItem.resolution_deadline)}</span>
                                     </div>
                                 `;
                             }).join('')}
                         </td>
 
                         <!-- Col 3: Improvements list -->
-                        <td style="padding: 6px 10px; vertical-align: top; background: #fffbeb;">
+                        <td style="padding: 8px 10px; vertical-align: top; background: #fffbeb;">
                             ${emp.improvements.length === 0 ? '<div style="font-size: 11.5px; color: #92400e; font-style: italic; padding: 4px 0;">Không có nội dung cần cải thiện</div>' : ''}
                             ${emp.improvements.map(function(impItem) {
                                 return `
-                                    <div onclick="window._eeOpenDetailModal(${impItem.id});" title="Click để xem chi tiết đầy đủ" style="padding: 4px 8px; margin-bottom: 4px; background: white; border-radius: 5px; border-left: 3px solid #d97706; border-top: 1px solid #fde68a; border-right: 1px solid #fde68a; border-bottom: 1px solid #fde68a; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 8px; transition: all 0.15s;" onmouseover="this.style.background='#fef3c7'; this.style.transform='translateX(2px)';" onmouseout="this.style.background='white'; this.style.transform='translateX(0)';">
+                                    <div onclick="window._eeOpenDetailModal(${impItem.id});" title="Click để xem chi tiết đầy đủ" style="padding: 5px 9px; margin-bottom: 5px; background: white; border-radius: 6px; border-left: 3.5px solid #d97706; border-top: 1px solid #fde68a; border-right: 1px solid #fde68a; border-bottom: 1px solid #fde68a; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 8px; transition: all 0.15s; box-shadow: 0 1px 3px rgba(0,0,0,0.03);" onmouseover="this.style.background='#fef3c7'; this.style.transform='translateX(2px)';" onmouseout="this.style.background='white'; this.style.transform='translateX(0)';">
                                         <div style="font-size: 12px; font-weight: 800; color: #92400e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;">
+                                            <span style="background: #d97706; color: white; padding: 1px 6px; border-radius: 4px; font-weight: 900; font-size: 10.5px; margin-right: 6px; display: inline-block;">👤 ${emp.name}</span>
                                             💡 <span style="font-size: 10.5px; color: #64748b; font-weight: 600;">[${_formatShortKy(impItem.month_year)}]</span> ${impItem.improvement_errors || 'Nội dung cải thiện'}
                                         </div>
-                                        <span style="font-size: 10px; font-weight: 800; color: #059669; flex-shrink: 0; background: #f0fdf4; padding: 1px 5px; border-radius: 4px;">${impItem.status === 'completed' ? '🟢 Hoàn thành' : '🟡 Đang theo dõi'}</span>
+                                        <span style="font-size: 10px; font-weight: 800; color: #059669; flex-shrink: 0; background: #f0fdf4; padding: 2px 6px; border-radius: 4px; border: 1px solid #bbf7d0;">${impItem.status === 'completed' ? '🟢 Hoàn thành' : '🟡 Đang theo dõi'}</span>
                                     </div>
                                 `;
                             }).join('')}
