@@ -27,6 +27,27 @@
 
     var DEPARTMENTS = ['Kinh Doanh', 'Sale', 'Marketing', 'Sản Xuất', 'Văn Phòng', 'Thiết Kế', 'May', 'Cắt', 'In', 'Ép', 'Hoàn Thiện', 'Kho', 'Khác'];
 
+    function _eeIsDirector() {
+        try {
+            var rawUser = localStorage.getItem('currentUser') || localStorage.getItem('user') || localStorage.getItem('userData') || localStorage.getItem('userInfo') || '{}';
+            var u = JSON.parse(rawUser);
+            if (!u || typeof u !== 'object') return false;
+
+            var role = (u.role || u.role_name || u.position || u.title || u.role_code || '').toString().toLowerCase().trim();
+            var username = (u.username || u.username_login || u.full_name || '').toString().toLowerCase().trim();
+
+            if (role === 'director' || role === 'admin' || role === 'giam_doc' || role.includes('giám đốc') || role.includes('giam doc') || role.includes('ban giám đốc')) {
+                return true;
+            }
+            if (username === 'admin' || username === 'director' || username.includes('giamdoc') || username.includes('director')) {
+                return true;
+            }
+            return false;
+        } catch(e) {
+            return false;
+        }
+    }
+
     function _getDeptBadgeHtml(deptName) {
         if (!deptName || deptName === '--') {
             return '<span style="display: inline-block; padding: 2px 7px; border-radius: 5px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; font-weight: 800; font-size: 11px;">--</span>';
@@ -674,12 +695,14 @@
                         <button onclick="window._eeOpenDetailModal(${item.id})" style="flex: 1; padding: 7px; background: #f1f5f9; color: #1e293b; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 11.5px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;">
                             👁️ Chi Tiết
                         </button>
-                        <button onclick="window._eeOpenFormModal(${item.id}, null, false)" style="flex: 1; padding: 7px; background: #3b82f6; color: white; border: none; border-radius: 8px; font-size: 11.5px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;">
-                            ✏️ Sửa
-                        </button>
-                        <button onclick="window._eeDelete(${item.id})" style="padding: 7px 12px; background: #fee2e2; color: #dc2626; border: 1px solid #fecdd3; border-radius: 8px; font-size: 11.5px; font-weight: 800; cursor: pointer;">
-                            🗑️
-                        </button>
+                        ${_eeIsDirector() ? `
+                            <button onclick="window._eeOpenFormModal(${item.id}, null, false)" style="flex: 1; padding: 7px; background: #3b82f6; color: white; border: none; border-radius: 8px; font-size: 11.5px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;">
+                                ✏️ Sửa
+                            </button>
+                            <button onclick="window._eeDelete(${item.id})" style="padding: 7px 12px; background: #fee2e2; color: #dc2626; border: 1px solid #fecdd3; border-radius: 8px; font-size: 11.5px; font-weight: 800; cursor: pointer;">
+                                🗑️
+                            </button>
+                        ` : ''}
                     </div>
                 </div>
             `;
@@ -1323,12 +1346,14 @@
                         💡 ID Hồ sơ: <strong>#${item.id}</strong> • Thời gian tạo: <strong>${shortMonthYear}</strong>
                     </div>
                     <div style="display: flex; gap: 10px;">
-                        <button onclick="document.getElementById('eeDetailModal').remove(); window._eeOpenFormModal(${item.id}, null, false);" style="padding: 8px 16px; background: #3b82f6; color: white; border: none; border-radius: 8px; font-weight: 700; font-size: 12.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(59,130,246,0.3); transition: transform 0.1s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
-                            ✏️ Chỉnh Sửa
-                        </button>
-                        <button onclick="document.getElementById('eeDetailModal').remove(); window._eeDelete(${item.id});" style="padding: 8px 16px; background: #ef4444; color: white; border: none; border-radius: 8px; font-weight: 700; font-size: 12.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(239,68,68,0.3); transition: transform 0.1s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
-                            🗑️ Xóa Hồ Sơ
-                        </button>
+                        ${_eeIsDirector() ? `
+                            <button onclick="document.getElementById('eeDetailModal').remove(); window._eeOpenFormModal(${item.id}, null, false);" style="padding: 8px 16px; background: #3b82f6; color: white; border: none; border-radius: 8px; font-weight: 700; font-size: 12.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(59,130,246,0.3); transition: transform 0.1s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                                ✏️ Chỉnh Sửa
+                            </button>
+                            <button onclick="document.getElementById('eeDetailModal').remove(); window._eeDelete(${item.id});" style="padding: 8px 16px; background: #ef4444; color: white; border: none; border-radius: 8px; font-weight: 700; font-size: 12.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(239,68,68,0.3); transition: transform 0.1s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                                🗑️ Xóa Hồ Sơ
+                            </button>
+                        ` : ''}
                         <button onclick="document.getElementById('eeDetailModal').remove()" style="padding: 8px 14px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 8px; font-weight: 700; font-size: 12.5px; cursor: pointer;">
                             ✖️ Đóng
                         </button>
@@ -2104,7 +2129,15 @@
             showToast('❌ Lỗi kết nối hệ thống', 'error');
         }
     };
-window._eeDelete = async function(id) {
+    window._eeDelete = async function(id) {
+        if (!_eeIsDirector()) {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({ icon: 'error', title: 'Quyền Hạn Hạn Chế', text: 'Chỉ Giám Đốc mới có quyền xóa hồ sơ đánh giá này!' });
+            } else {
+                alert('Chỉ Giám Đốc mới có quyền xóa hồ sơ đánh giá này!');
+            }
+            return;
+        }
         if (!confirm('Bạn có chắc chắn muốn xóa bản đánh giá nhân sự này?')) return;
         try {
             await apiCall('/api/employee-evaluations/' + id, 'DELETE');
