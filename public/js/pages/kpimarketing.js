@@ -4307,7 +4307,7 @@ function renderKpiMktMeetingCommit(el) {
                 if (isGDOrMktMgr) {
                     if (!isSessOpen) {
                         if (teamOwnCommits.length > 0) {
-                            h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcMktSwitchSession(' + sess.id + ');mcEditTeam(' + team.id + ',\'' + team.name.replace(/'/g, "\\'") + '\',null,true)">👁️ Xem Team</button>';
+                            h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcMktSwitchSession(' + sess.id + ');mcEditTeam(' + team.id + ',\'' + team.name.replace(/'/g, "\\'") + '\',null,true)">👁️ Review Team</button>';
                         }
                     } else if (teamOwnCommits.length > 0) {
                         var teamReviewed = teamOwnCommits.some(function(c) { return !!c.reviewed_by; });
@@ -4317,7 +4317,7 @@ function renderKpiMktMeetingCommit(el) {
                         } else if (!teamReviewed) {
                             h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcMktSwitchSession(' + sess.id + ');mcReviewTeam(' + team.id + ',\'' + team.name.replace(/'/g, "\\'") + '\')">✅ Review</button>';
                         } else {
-                            h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcMktSwitchSession(' + sess.id + ');mcReviewTeam(' + team.id + ',\'' + team.name.replace(/'/g, "\\'") + '\',true)">👁️ Xem</button>';
+                            h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcMktSwitchSession(' + sess.id + ');mcReviewTeam(' + team.id + ',\'' + team.name.replace(/'/g, "\\'") + '\',true)">👁️ Review</button>';
                         }
                     } else {
                         h += '<button class="kpi-mc-btn kpi-mc-btn-primary" onclick="mcMktSwitchSession(' + sess.id + ');mcEditTeam(' + team.id + ',\'' + team.name.replace(/'/g, "\\'") + '\')">📝 Ghi Team</button>';
@@ -4363,7 +4363,6 @@ function renderKpiMktMeetingCommit(el) {
 
                         if (!isSessOpen) {
                             h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcMktSwitchSession(' + sess.id + ');mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\',true)">👁️ Review</button>';
-                            h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcMktSwitchSession(' + sess.id + ');mcEditUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\',null,true)">👁️ Xem</button>';
                         } else if (isGD) {
                             h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcMktSwitchSession(' + sess.id + ');mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">✅ Review</button>';
                             h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcMktSwitchSession(' + sess.id + ');mcEditUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">✏️</button>';
@@ -4372,14 +4371,14 @@ function renderKpiMktMeetingCommit(el) {
                                 h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcMktSwitchSession(' + sess.id + ');mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">✅ Review</button>';
                                 h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcMktSwitchSession(' + sess.id + ');mcEditUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">✏️</button>';
                             } else {
-                                h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcMktSwitchSession(' + sess.id + ');mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\',true)">👁️ Xem</button>';
+                                h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcMktSwitchSession(' + sess.id + ');mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\',true)">👁️ Review</button>';
                             }
                         } else if (isSelf) {
                             if (!isEmpReviewed) {
                                 h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcMktSwitchSession(' + sess.id + ');mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">📝 Đánh giá</button>';
                                 h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcMktSwitchSession(' + sess.id + ');mcEditUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">✏️ Sửa</button>';
                             } else {
-                                h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcMktSwitchSession(' + sess.id + ');mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\',true)">👁️ Xem</button>';
+                                h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcMktSwitchSession(' + sess.id + ');mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\',true)">👁️ Review</button>';
                             }
                         }
                     } else {

@@ -2218,7 +2218,7 @@ function renderKpiSaleMeetingCommit(el) {
                 if (isGD) {
                     if (!isSessOpen) {
                         if (teamOwnCommits.length > 0) {
-                            h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSaleSwitchSession(' + sess.id + ');mcSaleEditTeam(' + team.id + ',\'' + team.name.replace(/'/g, "\\\\'") + '\',null,true)">👁️ Xem Team</button>';
+                            h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSaleSwitchSession(' + sess.id + ');mcSaleEditTeam(' + team.id + ',\'' + team.name.replace(/'/g, "\\\\'") + '\',null,true)">👁️ Review Team</button>';
                         }
                     } else if (teamOwnCommits.length > 0) {
                         h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSaleSwitchSession(' + sess.id + ');mcSaleReviewTeam(' + team.id + ',\'' + team.name.replace(/'/g, "\\\\'") + '\')">✅ Review</button>';
@@ -2269,7 +2269,6 @@ function renderKpiSaleMeetingCommit(el) {
                         }
                         if (!isSessOpen) {
                             h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSaleSwitchSession(' + sess.id + ');mcSaleReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\\\'") + '\',true)">👁️ Review</button>';
-                            h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSaleSwitchSession(' + sess.id + ');mcSaleEditUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\\\'") + '\',null,true)">👁️ Xem</button>';
                         } else if (isGD) {
                             h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSaleSwitchSession(' + sess.id + ');mcSaleReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\\\'") + '\')">✅ Review</button>';
                             h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSaleSwitchSession(' + sess.id + ');mcSaleEditUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\\\'") + '\')">✏️</button>';

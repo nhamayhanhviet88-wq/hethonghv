@@ -2069,7 +2069,7 @@ function kpiRenderMeetingCommit(el) {
                 if (isGD || myRole === 'quan_ly' || myRole === 'quan_ly_cap_cao') {
                     if (!isSessOpen) {
                         if (teamOwnCommits.length > 0) {
-                            h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSwitchSession(' + sess.id + ');mcEditTeam(' + team.id + ',\'' + team.name.replace(/'/g, "\\'") + '\',null,true)">👁️ Xem Team</button>';
+                            h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSwitchSession(' + sess.id + ');mcEditTeam(' + team.id + ',\'' + team.name.replace(/'/g, "\\'") + '\',null,true)">👁️ Review Team</button>';
                         }
                     } else if (teamOwnCommits.length > 0) {
                         var teamReviewed = teamOwnCommits.some(function(c) { return !!c.reviewed_by; });
@@ -2150,7 +2150,6 @@ function kpiRenderMeetingCommit(el) {
 
                         if (!isSessOpen) {
                             h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSwitchSession(' + sess.id + ');mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\',true)">👁️ Review</button>';
-                            h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSwitchSession(' + sess.id + ');mcEditUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\',null,true)">👁️ Xem</button>';
                         } else if (isGD) {
                             h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSwitchSession(' + sess.id + ');mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">✅ Review</button>';
                             h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSwitchSession(' + sess.id + ');mcEditUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">✏️</button>';
@@ -2158,14 +2157,14 @@ function kpiRenderMeetingCommit(el) {
                             if (!anyReviewed) {
                                 h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSwitchSession(' + sess.id + ');mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">✅ Review</button>';
                             } else {
-                                h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSwitchSession(' + sess.id + ');mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\',true)">👁️ Xem</button>';
+                                h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSwitchSession(' + sess.id + ');mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\',true)">👁️ Review</button>';
                             }
                         } else if (isSelf && !anyReviewed) {
                             h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSwitchSession(' + sess.id + ');mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\')">📝 Đánh giá</button>';
                         } else if (isSelf && anyReviewed) {
-                            h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSwitchSession(' + sess.id + ');mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\',true)">👁️ Xem</button>';
+                            h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSwitchSession(' + sess.id + ');mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\',true)">👁️ Review</button>';
                         } else if (canView && !isSelf) {
-                            h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSwitchSession(' + sess.id + ');mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\',true)">👁️ Xem</button>';
+                            h += '<button class="kpi-mc-btn kpi-mc-btn-ghost" onclick="mcSwitchSession(' + sess.id + ');mcReviewUser(' + emp.id + ',\'' + emp.full_name.replace(/'/g, "\\'") + '\',true)">👁️ Review</button>';
                         }
                     } else {
                         if (!isSessOpen) {
