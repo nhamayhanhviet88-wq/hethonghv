@@ -60,9 +60,6 @@
                         <button onclick="window._eeSetViewMode('analysis')" style="padding: 8px 14px; background: linear-gradient(135deg, #059669, #047857); color: white; border: none; border-radius: 8px; font-size: 12px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(5,150,105,0.25);">
                             📊 Báo Cáo Phân Tích Nhân Sự
                         </button>
-                        <button onclick="window._eeExportExcel()" style="padding: 8px 14px; background: #16a34a; color: white; border: none; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 8px rgba(22,163,74,0.25);">
-                            📊 Xuất Excel
-                        </button>
                         <button onclick="window._eeOpenFormModal()" style="padding: 8px 16px; background: linear-gradient(135deg, #7c3aed, #6d28d9); color: white; border: none; border-radius: 8px; font-size: 12px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(124,58,237,0.3);">
                             ➕ Thêm Đánh Giá Mới
                         </button>
