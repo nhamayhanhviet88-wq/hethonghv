@@ -68,10 +68,10 @@
                         </p>
                     </div>
                     <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                        <button onclick="window._eeSetViewMode('analysis')" style="padding: 8px 14px; background: linear-gradient(135deg, #059669, #047857); color: white; border: none; border-radius: 8px; font-size: 12px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(5,150,105,0.25);">
+                        <button onclick="window._eeSetViewMode('analysis')" style="padding: 8px 14px; background: linear-gradient(135deg, #059669, #047857); color: white; border: none; border-radius: 8px; font-size: 12.5px; font-weight: 600; font-family: inherit; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(5,150,105,0.25);">
                             📊 Báo Cáo Phân Tích Nhân Sự
                         </button>
-                        <button onclick="window._eeOpenFormModal()" style="padding: 8px 16px; background: linear-gradient(135deg, #7c3aed, #6d28d9); color: white; border: none; border-radius: 8px; font-size: 12px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(124,58,237,0.3);">
+                        <button onclick="window._eeOpenFormModal()" style="padding: 8px 16px; background: linear-gradient(135deg, #7c3aed, #6d28d9); color: white; border: none; border-radius: 8px; font-size: 12.5px; font-weight: 600; font-family: inherit; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(124,58,237,0.3);">
                             ➕ Thêm Đánh Giá Mới
                         </button>
                     </div>
@@ -931,7 +931,7 @@
                             <span style="font-size: 11px; font-weight: 700; color: #be123c; background: #fff1f2; padding: 2px 8px; border-radius: 6px; border: 1px solid #fecdd3;">
                                 ⏳ Hạn xử lý: ${_formatShortDate(rec.resolution_deadline)}
                             </span>
-                            <button onclick="window._eeOpenDetailModal(${rec.id});" style="padding: 5px 12px; background: #1e3a8a; color: white; border: none; border-radius: 6px; font-weight: 800; font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 4px; box-shadow: 0 2px 4px rgba(30,58,138,0.2);" onmouseover="this.style.background='#2563eb'" onmouseout="this.style.background='#1e3a8a'">
+                            <button onclick="window._eeOpenDetailModal(${rec.id});" style="padding: 6px 14px; background: #1e3a8a; color: white; border: none; border-radius: 6px; font-weight: 600; font-size: 12px; font-family: inherit; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(30,58,138,0.2);" onmouseover="this.style.background='#2563eb'" onmouseout="this.style.background='#1e3a8a'">
                                 📂 Mở Hồ Sơ Đánh Giá (#${rec.id}) ➔
                             </button>
                         </div>
