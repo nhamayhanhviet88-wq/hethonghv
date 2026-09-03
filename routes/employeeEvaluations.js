@@ -71,18 +71,20 @@ async function employeeEvaluationsRoutes(fastify, options) {
                 params.push(status);
             }
 
-            if (eval_type && eval_type !== 'all') {
-                sql += ` AND eval_type = ?`;
-                params.push(eval_type);
-            }
+            // Handle stat_filter & eval_type from card clicks (only apply when search is empty)
+            if (!search || search.trim() === '') {
+                if (eval_type && eval_type !== 'all') {
+                    sql += ` AND eval_type = ?`;
+                    params.push(eval_type);
+                }
 
-            // Handle stat_filter from card clicks
-            if (stat_filter === 'pending_employee') {
-                sql += ` AND ((employee_opinion IS NULL OR employee_opinion = '') AND (employee_commitment IS NULL OR employee_commitment = ''))`;
-            } else if (stat_filter === 'pending_progress') {
-                sql += ` AND (((employee_opinion IS NOT NULL AND employee_opinion != '') OR (employee_commitment IS NOT NULL AND employee_commitment != '')) AND (manager_report IS NULL OR manager_report = '') AND (employee_report IS NULL OR employee_report = ''))`;
-            } else if (stat_filter === 'completed_progress') {
-                sql += ` AND ((manager_report IS NOT NULL AND manager_report != '') OR (employee_report IS NOT NULL AND employee_report != ''))`;
+                if (stat_filter === 'pending_employee') {
+                    sql += ` AND ((employee_opinion IS NULL OR employee_opinion = '') AND (employee_commitment IS NULL OR employee_commitment = ''))`;
+                } else if (stat_filter === 'pending_progress') {
+                    sql += ` AND (((employee_opinion IS NOT NULL AND employee_opinion != '') OR (employee_commitment IS NOT NULL AND employee_commitment != '')) AND (manager_report IS NULL OR manager_report = '') AND (employee_report IS NULL OR employee_report = ''))`;
+                } else if (stat_filter === 'completed_progress') {
+                    sql += ` AND ((manager_report IS NOT NULL AND manager_report != '') OR (employee_report IS NOT NULL AND employee_report != ''))`;
+                }
             }
 
             if (search && search.trim() !== '') {
