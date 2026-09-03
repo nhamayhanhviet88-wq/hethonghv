@@ -17,11 +17,11 @@
         if (!c) return;
 
         c.innerHTML = `
-            <div class="ee-container" style="padding: 24px; max-width: 1600px; margin: 0 auto; font-family: Inter, system-ui, sans-serif; color: #1e293b;">
+            <div class="ee-container" style="padding: 16px 20px; width: 100%; box-sizing: border-box; font-family: Inter, system-ui, sans-serif; color: #1e293b;">
                 <!-- Header -->
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; flex-wrap: wrap; gap: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; flex-wrap: wrap; gap: 16px;">
                     <div>
-                        <h1 style="font-size: 24px; font-weight: 900; color: #0f172a; margin: 0 0 6px 0; display: flex; align-items: center; gap: 10px;">
+                        <h1 style="font-size: 22px; font-weight: 900; color: #0f172a; margin: 0 0 4px 0; display: flex; align-items: center; gap: 10px;">
                             <span>📝</span> ĐÁNH GIÁ NHÂN SỰ — CUỘC HỌP CÔNG TY
                         </h1>
                         <p style="font-size: 13px; color: #64748b; margin: 0;">
@@ -29,27 +29,27 @@
                         </p>
                     </div>
                     <div style="display: flex; gap: 10px;">
-                        <button onclick="window._eeExportExcel()" style="padding: 9px 16px; background: #16a34a; color: white; border: none; border-radius: 10px; font-size: 13px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 8px rgba(22,163,74,0.25);">
+                        <button onclick="window._eeExportExcel()" style="padding: 8px 14px; background: #16a34a; color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 8px rgba(22,163,74,0.25);">
                             📊 Xuất Excel
                         </button>
-                        <button onclick="window._eeOpenFormModal()" style="padding: 9px 18px; background: linear-gradient(135deg, #7c3aed, #6d28d9); color: white; border: none; border-radius: 10px; font-size: 13px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(124,58,237,0.3);">
+                        <button onclick="window._eeOpenFormModal()" style="padding: 8px 16px; background: linear-gradient(135deg, #7c3aed, #6d28d9); color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(124,58,237,0.3);">
                             ➕ Thêm Đánh Giá Mới
                         </button>
                     </div>
                 </div>
 
                 <!-- KPI Summary Cards -->
-                <div id="eeStatsContainer" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
+                <div id="eeStatsContainer" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 18px;">
                     <!-- Injected by JS -->
                 </div>
 
                 <!-- Filter Controls Bar -->
-                <div style="background: white; border-radius: 14px; padding: 16px 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.04); margin-bottom: 20px; border: 1px solid #e2e8f0; display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: space-between;">
+                <div style="background: white; border-radius: 12px; padding: 12px 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.04); margin-bottom: 16px; border: 1px solid #e2e8f0; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between;">
                     <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
                         <!-- Select Month / Year -->
                         <div style="display: flex; align-items: center; gap: 6px;">
                             <label style="font-size: 12px; font-weight: 700; color: #475569;">📅 Kỳ đánh giá:</label>
-                            <select id="eeFilterMonth" onchange="window._eeOnFilterChange()" style="padding: 8px 12px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 13px; font-weight: 600; background: #f8fafc; outline: none;">
+                            <select id="eeFilterMonth" onchange="window._eeOnFilterChange()" style="padding: 7px 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; font-weight: 600; background: #f8fafc; outline: none;">
                                 <option value="Tháng 3/2026">Tháng 3/2026</option>
                                 <option value="Tháng 9/2026">Tháng 9/2026</option>
                                 <option value="Tháng 8/2026">Tháng 8/2026</option>
@@ -64,7 +64,7 @@
                         <!-- Department Filter -->
                         <div style="display: flex; align-items: center; gap: 6px;">
                             <label style="font-size: 12px; font-weight: 700; color: #475569;">🏢 Bộ phận:</label>
-                            <select id="eeFilterDept" onchange="window._eeOnFilterChange()" style="padding: 8px 12px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 13px; font-weight: 600; background: #f8fafc; outline: none;">
+                            <select id="eeFilterDept" onchange="window._eeOnFilterChange()" style="padding: 7px 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; font-weight: 600; background: #f8fafc; outline: none;">
                                 <option value="all">Tất Cả Bộ Phận</option>
                                 ${DEPARTMENTS.map(d => `<option value="${d}">${d}</option>`).join('')}
                             </select>
@@ -73,7 +73,7 @@
                         <!-- Status Filter -->
                         <div style="display: flex; align-items: center; gap: 6px;">
                             <label style="font-size: 12px; font-weight: 700; color: #475569;">🎯 Trạng thái:</label>
-                            <select id="eeFilterStatus" onchange="window._eeOnFilterChange()" style="padding: 8px 12px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 13px; font-weight: 600; background: #f8fafc; outline: none;">
+                            <select id="eeFilterStatus" onchange="window._eeOnFilterChange()" style="padding: 7px 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; font-weight: 600; background: #f8fafc; outline: none;">
                                 <option value="all">Tất Cả Trạng Thái</option>
                                 <option value="pending">🔴 Chưa Xử Lý (0%)</option>
                                 <option value="in_progress">🟡 Đang Khắc Phục (1-99%)</option>
@@ -83,35 +83,35 @@
                     </div>
 
                     <!-- Search Input -->
-                    <div style="position: relative; width: 280px;">
-                        <input id="eeSearchInput" type="text" placeholder="🔍 Tìm nhân sự, lỗi, bộ phận..." oninput="window._eeOnSearchInput()" style="width: 100%; padding: 8px 12px 8px 34px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 13px; outline: none; box-sizing: border-box;">
-                        <span style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 14px;">🔍</span>
+                    <div style="position: relative; width: 260px;">
+                        <input id="eeSearchInput" type="text" placeholder="🔍 Tìm nhân sự, lỗi, bộ phận..." oninput="window._eeOnSearchInput()" style="width: 100%; padding: 7px 10px 7px 32px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; outline: none; box-sizing: border-box;">
+                        <span style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 13px;">🔍</span>
                     </div>
                 </div>
 
-                <!-- Table Container -->
-                <div style="background: white; border-radius: 14px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; overflow-x: auto;">
-                    <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 12px;">
+                <!-- Table Container (Full Width) -->
+                <div style="background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; overflow-x: auto; width: 100%;">
+                    <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 11px; table-layout: auto;">
                         <thead>
-                            <tr style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 800;">
-                                <th style="padding: 12px 8px; background: #1e3a8a; color: white; border-right: 1px solid rgba(255,255,255,0.1); width: 65px; text-align: center;">Tháng</th>
-                                <th style="padding: 12px 6px; background: #1e3a8a; color: white; border-right: 1px solid rgba(255,255,255,0.1); width: 35px; text-align: center;">STT</th>
-                                <th style="padding: 12px 10px; background: #1e3a8a; color: white; border-right: 1px solid rgba(255,255,255,0.1); min-width: 120px;">Họ Tên</th>
-                                <th style="padding: 12px 10px; background: #1e3a8a; color: white; border-right: 1px solid rgba(255,255,255,0.1); min-width: 100px;">Bộ Phận</th>
-                                <th style="padding: 12px 10px; background: #1e3a8a; color: white; border-right: 1px solid rgba(255,255,255,0.1); min-width: 140px;">Cải Thiện / Lỗi</th>
-                                <th style="padding: 12px 10px; background: #1e3a8a; color: white; border-right: 1px solid rgba(255,255,255,0.1); min-width: 160px;">Đánh Giá Năng Lực NV Quản Lý</th>
-                                <th style="padding: 12px 10px; background: #1e3a8a; color: white; border-right: 1px solid rgba(255,255,255,0.1); min-width: 140px;">Nhân Sự Khắc Phục</th>
-                                <th style="padding: 12px 10px; background: #1e3a8a; color: white; border-right: 1px solid rgba(255,255,255,0.1); min-width: 140px;">Hướng Đào Tạo</th>
-                                <th style="padding: 12px 10px; background: #1e3a8a; color: white; border-right: 1px solid rgba(255,255,255,0.1); min-width: 140px;">Cam Kết Của Quản Lý</th>
+                            <tr style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.3px; font-weight: 800;">
+                                <th style="padding: 10px 6px; background: #1e3a8a; color: white; border-right: 1px solid rgba(255,255,255,0.1); width: 60px; text-align: center;">Tháng</th>
+                                <th style="padding: 10px 4px; background: #1e3a8a; color: white; border-right: 1px solid rgba(255,255,255,0.1); width: 30px; text-align: center;">STT</th>
+                                <th style="padding: 10px 8px; background: #1e3a8a; color: white; border-right: 1px solid rgba(255,255,255,0.1); min-width: 85px;">Họ Tên</th>
+                                <th style="padding: 10px 8px; background: #1e3a8a; color: white; border-right: 1px solid rgba(255,255,255,0.1); min-width: 80px;">Bộ Phận</th>
+                                <th style="padding: 10px 8px; background: #1e3a8a; color: white; border-right: 1px solid rgba(255,255,255,0.1); min-width: 105px;">Cải Thiện / Lỗi</th>
+                                <th style="padding: 10px 8px; background: #1e3a8a; color: white; border-right: 1px solid rgba(255,255,255,0.1); min-width: 120px;">Đánh Giá Năng Lực NV Quản Lý</th>
+                                <th style="padding: 10px 8px; background: #1e3a8a; color: white; border-right: 1px solid rgba(255,255,255,0.1); min-width: 105px;">Nhân Sự Khắc Phục</th>
+                                <th style="padding: 10px 8px; background: #1e3a8a; color: white; border-right: 1px solid rgba(255,255,255,0.1); min-width: 95px;">Hướng Đào Tạo</th>
+                                <th style="padding: 10px 8px; background: #1e3a8a; color: white; border-right: 1px solid rgba(255,255,255,0.1); min-width: 95px;">Cam Kết Của Quản Lý</th>
                                 <!-- Pink Block: Employee Input -->
-                                <th style="padding: 12px 10px; background: #db2777; color: white; border-right: 1px solid rgba(255,255,255,0.1); min-width: 130px;">Ý Kiến Của Nhân Sự</th>
-                                <th style="padding: 12px 10px; background: #db2777; color: white; border-right: 1px solid rgba(255,255,255,0.1); min-width: 110px;">Time Xử Lý Của Nhân Sự</th>
-                                <th style="padding: 12px 10px; background: #db2777; color: white; border-right: 1px solid rgba(255,255,255,0.1); min-width: 130px;">Cam Kết Của Nhân Sự</th>
+                                <th style="padding: 10px 8px; background: #db2777; color: white; border-right: 1px solid rgba(255,255,255,0.1); min-width: 95px;">Ý Kiến Của Nhân Sự</th>
+                                <th style="padding: 10px 8px; background: #db2777; color: white; border-right: 1px solid rgba(255,255,255,0.1); min-width: 85px;">Time Xử Lý Của Nhân Sự</th>
+                                <th style="padding: 10px 8px; background: #db2777; color: white; border-right: 1px solid rgba(255,255,255,0.1); min-width: 95px;">Cam Kết Của Nhân Sự</th>
                                 <!-- Teal Block: Report & Progress -->
-                                <th style="padding: 12px 10px; background: #0284c7; color: white; border-right: 1px solid rgba(255,255,255,0.1); min-width: 150px;">Quản Lý Báo Cáo</th>
-                                <th style="padding: 12px 10px; background: #0284c7; color: white; border-right: 1px solid rgba(255,255,255,0.1); min-width: 150px;">Nhân Sự Báo Cáo</th>
-                                <th style="padding: 12px 10px; background: #0284c7; color: white; border-right: 1px solid rgba(255,255,255,0.1); min-width: 120px; text-align: center;">Tỷ Lệ Khắc Phục</th>
-                                <th style="padding: 12px 10px; background: #334155; color: white; width: 90px; text-align: center;">Thao Tác</th>
+                                <th style="padding: 10px 8px; background: #0284c7; color: white; border-right: 1px solid rgba(255,255,255,0.1); min-width: 105px;">Quản Lý Báo Cáo</th>
+                                <th style="padding: 10px 8px; background: #0284c7; color: white; border-right: 1px solid rgba(255,255,255,0.1); min-width: 105px;">Nhân Sự Báo Cáo</th>
+                                <th style="padding: 10px 8px; background: #0284c7; color: white; border-right: 1px solid rgba(255,255,255,0.1); min-width: 85px; text-align: center;">Tỷ Lệ Khắc Phục</th>
+                                <th style="padding: 10px 6px; background: #334155; color: white; width: 75px; text-align: center;">Thao Tác</th>
                             </tr>
                         </thead>
                         <tbody id="eeTableBody">
