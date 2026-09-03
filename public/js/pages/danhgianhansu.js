@@ -14,6 +14,30 @@
 
     var DEPARTMENTS = ['Kinh Doanh', 'Sale', 'Marketing', 'Sản Xuất', 'Văn Phòng', 'Thiết Kế', 'May', 'Cắt', 'In', 'Ép', 'Hoàn Thiện', 'Kho', 'Khác'];
 
+    function _getDeptBadgeHtml(deptName) {
+        if (!deptName || deptName === '--') {
+            return '<span style="display: inline-block; padding: 2px 7px; border-radius: 5px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; font-weight: 800; font-size: 11px;">--</span>';
+        }
+        var d = deptName.trim();
+        var bg = '#f1f5f9', color = '#334155', border = '#cbd5e1';
+
+        if (d === 'Kinh Doanh') { bg = '#dbeafe'; color = '#1e40af'; border = '#bfdbfe'; }
+        else if (d === 'Sale') { bg = '#e0e7ff'; color = '#3730a3'; border = '#c7d2fe'; }
+        else if (d === 'Marketing') { bg = '#fae8ff'; color = '#86198f'; border = '#f5d0fe'; }
+        else if (d === 'Sản Xuất') { bg = '#fef3c7'; color = '#92400e'; border = '#fde68a'; }
+        else if (d === 'Văn Phòng') { bg = '#e0f2fe'; color = '#075985'; border = '#bae6fd'; }
+        else if (d === 'Thiết Kế') { bg = '#f3e8ff'; color = '#6b21a8'; border = '#e9d5ff'; }
+        else if (d === 'May') { bg = '#dcfce7'; color = '#166534'; border = '#bbf7d0'; }
+        else if (d === 'Cắt') { bg = '#ffedd5'; color = '#9a3412'; border = '#fed7aa'; }
+        else if (d === 'In') { bg = '#ccfbf1'; color = '#115e59'; border = '#99f6e4'; }
+        else if (d === 'Ép') { bg = '#fee2e2'; color = '#991b1b'; border = '#fca5a5'; }
+        else if (d === 'Hoàn Thiện') { bg = '#ecfdf5'; color = '#065f46'; border = '#a7f3d0'; }
+        else if (d === 'Kho') { bg = '#f1f5f9'; color = '#1e293b'; border = '#cbd5e1'; }
+        else { bg = '#f3f4f6'; color = '#374151'; border = '#d1d5db'; }
+
+        return `<span style="display: inline-block; padding: 3px 8px; border-radius: 6px; background: ${bg}; color: ${color}; border: 1px solid ${border}; font-weight: 800; font-size: 11px; white-space: nowrap; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">${d}</span>`;
+    }
+
     async function renderDanhgianhansuPage(container) {
         var c = container || document.getElementById('mainContent');
         if (!c) return;
@@ -309,7 +333,7 @@
                     <td style="padding: 8px 4px; text-align: center; font-weight: 700; color: #1e40af; background: #f0f9ff; border-right: 1px solid #e2e8f0; font-size: 11.5px;">${monthShort}</td>
                     <td style="padding: 8px 4px; text-align: center; font-weight: 700; color: #64748b; border-right: 1px solid #e2e8f0; font-size: 11.5px;">${idx + 1}</td>
                     <td style="padding: 8px 6px; font-weight: 800; color: #0f172a; border-right: 1px solid #e2e8f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px;" title="${item.employee_name}">${item.employee_name || '--'}</td>
-                    <td style="padding: 8px 4px; border-right: 1px solid #e2e8f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 11.5px;" title="${item.department}"><span style="padding: 2px 6px; border-radius: 4px; background: #f1f5f9; font-weight: 700; color: #334155; font-size: 11px;">${item.department || '--'}</span></td>
+                    <td style="padding: 8px 4px; border-right: 1px solid #e2e8f0; text-align: center;" title="${item.department}">${_getDeptBadgeHtml(item.department)}</td>
                     
                     <td style="padding: 8px 6px; border-right: 1px solid #e2e8f0; color: #dc2626; font-weight: 600; word-break: break-word; line-height: 1.35; font-size: 12px;" title="${item.improvement_errors}">${_clampText(item.improvement_errors)}</td>
                     <td style="padding: 8px 6px; border-right: 1px solid #e2e8f0; color: #334155; word-break: break-word; line-height: 1.35; font-size: 12px;" title="${item.manager_evaluation}">${_clampText(item.manager_evaluation)}</td>
@@ -362,7 +386,7 @@
                         <div>
                             <div style="font-size: 16px; font-weight: 800; display: flex; align-items: center; gap: 8px;">
                                 <span>👤 ${item.employee_name}</span>
-                                <span style="font-size: 10px; font-weight: 700; background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 10px;">${item.department || '--'}</span>
+                                ${_getDeptBadgeHtml(item.department)}
                             </div>
                             <div style="font-size: 11px; color: #93c5fd; margin-top: 2px;">📅 ${item.month_year || '--'} • STT: #${idx + 1}</div>
                         </div>
