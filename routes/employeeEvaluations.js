@@ -70,7 +70,7 @@ async function employeeEvaluationsRoutes(fastify, options) {
             if (stat_filter === 'pending_employee') {
                 sql += ` AND ((employee_opinion IS NULL OR employee_opinion = '') AND (employee_commitment IS NULL OR employee_commitment = ''))`;
             } else if (stat_filter === 'pending_progress') {
-                sql += ` AND ((manager_report IS NULL OR manager_report = '') AND (employee_report IS NULL OR employee_report = ''))`;
+                sql += ` AND (((employee_opinion IS NOT NULL AND employee_opinion != '') OR (employee_commitment IS NOT NULL AND employee_commitment != '')) AND (manager_report IS NULL OR manager_report = '') AND (employee_report IS NULL OR employee_report = ''))`;
             } else if (stat_filter === 'completed_progress') {
                 sql += ` AND ((manager_report IS NOT NULL AND manager_report != '') OR (employee_report IS NOT NULL AND employee_report != ''))`;
             }
@@ -114,14 +114,25 @@ async function employeeEvaluationsRoutes(fastify, options) {
             const items = await db.all(sql, params);
 
             const total = items.length;
-            // 🔴 CHƯA XỬ LÝ 💬 Ý KIẾN & CAM KẾT NHÂN SỰ: Chưa có ý kiến hoặc cam kết của nhân sự
-            const pending_employee = items.filter(i => (!i.employee_opinion || i.employee_opinion.trim() === '') && (!i.employee_commitment || i.employee_commitment.trim() === '')).length;
+
+            const isSection2Done = (i) => {
+                return (i.employee_opinion && i.employee_opinion.trim() !== '') || 
+                       (i.employee_commitment && i.employee_commitment.trim() !== '');
+            };
+
+            const isSection3Done = (i) => {
+                return (i.manager_report && i.manager_report.trim() !== '') || 
+                       (i.employee_report && i.employee_report.trim() !== '');
+            };
+
+            // 🔴 CHƯA XỬ LÝ 💬 Ý KIẾN & CAM KẾT NHÂN SỰ: Mục 1 đã xong nhưng Mục 2 chưa nhập
+            const pending_employee = items.filter(i => !isSection2Done(i)).length;
             
-            // 🟡 CHƯA HOÀN THÀNH 📊 BÁO CÁO TIẾN ĐỘ: Chưa nhập báo cáo tiến độ (quản lý hoặc nhân sự)
-            const pending_progress = items.filter(i => (!i.manager_report || i.manager_report.trim() === '') && (!i.employee_report || i.employee_report.trim() === '')).length;
+            // 🟡 CHƯA HOÀN THÀNH 📊 BÁO CÁO TIẾN ĐỘ: Mục 2 đã nhập xong nhưng Mục 3 chưa nhập
+            const pending_progress = items.filter(i => isSection2Done(i) && !isSection3Done(i)).length;
             
-            // 🟢 HOÀN THÀNH 📊 BÁO CÁO TIẾN ĐỘ: Đã nhập báo cáo tiến độ (đã làm xong)
-            const completed_progress = items.filter(i => (i.manager_report && i.manager_report.trim() !== '') || (i.employee_report && i.employee_report.trim() !== '')).length;
+            // 🟢 HOÀN THÀNH 📊 BÁO CÁO TIẾN ĐỘ: Đã nhập đủ Mục 3
+            const completed_progress = items.filter(i => isSection3Done(i)).length;
 
             return reply.send({
                 success: true,
