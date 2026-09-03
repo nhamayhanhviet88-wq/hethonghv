@@ -141,7 +141,7 @@
         var filterMonthEl = document.getElementById('eeFilterMonth');
         if (filterMonthEl) filterMonthEl.value = _eeState.monthYear;
 
-        // Fetch users for dropdown
+        // Fetch users for form dropdown
         try {
             var uRes = await apiCall('/api/users/dropdown');
             _eeState.users = (uRes && uRes.users) ? uRes.users : [];
@@ -149,7 +149,26 @@
             console.warn('Could not fetch users list:', e);
         }
 
+        // Fetch evaluated employees list for filter dropdown
+        await _eeLoadEvaluatedEmployees();
         await _eeLoadData();
+    }
+
+    async function _eeLoadEvaluatedEmployees() {
+        try {
+            var res = await apiCall('/api/employee-evaluations?month_year=all');
+            if (res && res.items) {
+                var set = new Set();
+                res.items.forEach(function(i) {
+                    if (i.employee_name && i.employee_name.trim()) {
+                        set.add(i.employee_name.trim());
+                    }
+                });
+                _eeState.evaluatedEmployees = Array.from(set).sort();
+            }
+        } catch(e) {
+            console.warn('Could not fetch evaluated employees list:', e);
+        }
     }
 
     async function _eeLoadData() {
@@ -187,16 +206,14 @@
         var selectEl = document.getElementById('eeFilterEmployee');
         if (!selectEl) return;
 
-        var currentVal = _eeState.employeeName;
+        var currentVal = _eeState.employeeName || 'all';
         var html = '<option value="all">Tất Cả Nhân Sự</option>';
 
-        var namesSet = new Set();
-        (_eeState.users || []).forEach(function(u) {
-            var name = u.full_name || u.name || u.username;
-            if (name) namesSet.add(name.trim());
-        });
+        var namesSet = new Set(_eeState.evaluatedEmployees || []);
         (_eeState.items || []).forEach(function(i) {
-            if (i.employee_name) namesSet.add(i.employee_name.trim());
+            if (i.employee_name && i.employee_name.trim()) {
+                namesSet.add(i.employee_name.trim());
+            }
         });
 
         Array.from(namesSet).sort().forEach(function(n) {
