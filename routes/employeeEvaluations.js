@@ -43,11 +43,13 @@ async function employeeEvaluationsRoutes(fastify, options) {
             const params = [];
 
             if (year && year !== 'all' && month && month !== 'all') {
-                sql += ` AND (month_year = ? OR month_year LIKE ?)`;
-                params.push(`Tháng ${month}/${year}`, `%${month}/${year}`);
+                const shortY = year.slice(-2);
+                sql += ` AND (month_year = ? OR month_year LIKE ? OR month_year LIKE ? OR month_year LIKE ?)`;
+                params.push(`Tháng ${month}/${year}`, `%${month}/${year}`, `Tháng ${month}/${shortY}`, `%${month}/${shortY}`);
             } else if (year && year !== 'all') {
-                sql += ` AND month_year LIKE ?`;
-                params.push(`%/${year}`);
+                const shortY = year.slice(-2);
+                sql += ` AND (month_year LIKE ? OR month_year LIKE ?)`;
+                params.push(`%/${year}`, `%/${shortY}`);
             } else if (month && month !== 'all') {
                 sql += ` AND (month_year LIKE ? OR month_year LIKE ?)`;
                 params.push(`Tháng ${month}/%`, `%${month}/%`);
