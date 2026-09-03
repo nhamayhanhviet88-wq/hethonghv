@@ -895,14 +895,14 @@
                         ${!hasSec2Data ? `
                             <div style="padding: 14px 18px; background: #fffbebf5; border: 1px dashed #fcd34d; border-radius: 10px; color: #b45309; font-size: 12.5px; font-weight: 600; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
                                 <span style="display: flex; align-items: center; gap: 8px;"><span>⌛</span> Đang chờ Nhân sự phản hồi ý kiến & cam kết khắc phục.</span>
-                                <span onclick="document.getElementById('eeDetailModal').remove(); window._eeOpenFormModal(${item.id}, 2);" style="color: #be185d; font-weight: 800; font-size: 13px; cursor: pointer; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border-radius: 4px; transition: background 0.15s;" onmouseover="this.style.background='#fce7f3'" onmouseout="this.style.background='transparent'">
+                                <span onclick="document.getElementById('eeDetailModal').remove(); window._eeOpenFormModal(${item.id}, 2, true);" style="color: #be185d; font-weight: 800; font-size: 13px; cursor: pointer; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border-radius: 4px; transition: background 0.15s;" onmouseover="this.style.background='#fce7f3'" onmouseout="this.style.background='transparent'">
                                     ✍️ Cập nhật
                                 </span>
                             </div>
                         ` : `
                             <div style="position: relative;">
                                 <div style="display: flex; justify-content: flex-end; margin-bottom: 6px;">
-                                    <span onclick="document.getElementById('eeDetailModal').remove(); window._eeOpenFormModal(${item.id}, 2);" style="color: #be185d; font-weight: 800; font-size: 12px; cursor: pointer; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;" onmouseover="this.style.color='#9d174d'" onmouseout="this.style.color='#be185d'">
+                                    <span onclick="document.getElementById('eeDetailModal').remove(); window._eeOpenFormModal(${item.id}, 2, true);" style="color: #be185d; font-weight: 800; font-size: 12px; cursor: pointer; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;" onmouseover="this.style.color='#9d174d'" onmouseout="this.style.color='#be185d'">
                                         ✍️ Cập nhật
                                     </span>
                                 </div>
@@ -931,14 +931,14 @@
                         ${!hasSec3Data ? `
                             <div style="padding: 14px 18px; background: white; border: 1px dashed #bae6fd; border-radius: 10px; color: #0369a1; font-size: 12.5px; font-weight: 600; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
                                 <span style="display: flex; align-items: center; gap: 8px;"><span>⚪</span> Chưa tới thời hạn cập nhật Báo cáo tiến độ thực hiện.</span>
-                                <span onclick="document.getElementById('eeDetailModal').remove(); window._eeOpenFormModal(${item.id}, 3);" style="color: #0369a1; font-weight: 800; font-size: 13px; cursor: pointer; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border-radius: 4px; transition: background 0.15s;" onmouseover="this.style.background='#e0f2fe'" onmouseout="this.style.background='transparent'">
+                                <span onclick="document.getElementById('eeDetailModal').remove(); window._eeOpenFormModal(${item.id}, 3, true);" style="color: #0369a1; font-weight: 800; font-size: 13px; cursor: pointer; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border-radius: 4px; transition: background 0.15s;" onmouseover="this.style.background='#e0f2fe'" onmouseout="this.style.background='transparent'">
                                     📊 Cập nhật
                                 </span>
                             </div>
                         ` : `
                             <div style="position: relative;">
                                 <div style="display: flex; justify-content: flex-end; margin-bottom: 6px;">
-                                    <span onclick="document.getElementById('eeDetailModal').remove(); window._eeOpenFormModal(${item.id}, 3);" style="color: #0369a1; font-weight: 800; font-size: 12px; cursor: pointer; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;" onmouseover="this.style.color='#075985'" onmouseout="this.style.color='#0369a1'">
+                                    <span onclick="document.getElementById('eeDetailModal').remove(); window._eeOpenFormModal(${item.id}, 3, true);" style="color: #0369a1; font-weight: 800; font-size: 12px; cursor: pointer; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;" onmouseover="this.style.color='#075985'" onmouseout="this.style.color='#0369a1'">
                                         📊 Cập nhật
                                     </span>
                                 </div>
@@ -964,7 +964,7 @@
                         💡 ID Hồ sơ: <strong>#${item.id}</strong> • Thời gian tạo: <strong>${shortMonthYear}</strong>
                     </div>
                     <div style="display: flex; gap: 10px;">
-                        <button onclick="document.getElementById('eeDetailModal').remove(); window._eeOpenFormModal(${item.id});" style="padding: 8px 16px; background: #3b82f6; color: white; border: none; border-radius: 8px; font-weight: 700; font-size: 12.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(59,130,246,0.3); transition: transform 0.1s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                        <button onclick="document.getElementById('eeDetailModal').remove(); window._eeOpenFormModal(${item.id}, null, false);" style="padding: 8px 16px; background: #3b82f6; color: white; border: none; border-radius: 8px; font-weight: 700; font-size: 12.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(59,130,246,0.3); transition: transform 0.1s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
                             ✏️ Chỉnh Sửa
                         </button>
                         <button onclick="document.getElementById('eeDetailModal').remove(); window._eeDelete(${item.id});" style="padding: 8px 16px; background: #ef4444; color: white; border: none; border-radius: 8px; font-weight: 700; font-size: 12.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(239,68,68,0.3); transition: transform 0.1s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
@@ -1009,7 +1009,10 @@
     };
 
     // Modal Form (Add / Edit 3-Section Sequential Flow)
-    window._eeOpenFormModal = async function(editId, targetSection) {
+    window._eeOpenFormModal = async function(editId, targetSection, isQuickUpdate) {
+        _eeState.currentIsQuickUpdate = Boolean(isQuickUpdate);
+        _eeState.currentTargetSection = targetSection || null;
+
         if (!_eeState.users || _eeState.users.length === 0) {
             try {
                 var uRes = await apiCall('/api/users/dropdown');
@@ -1031,9 +1034,11 @@
                     <div style="padding: 18px 24px; background: linear-gradient(135deg, #1e3a8a, #1e40af); border-radius: 20px 20px 0 0; color: white; display: flex; justify-content: space-between; align-items: center;">
                         <div>
                             <h3 style="margin: 0; font-size: 18px; font-weight: 800; display: flex; align-items: center; gap: 8px;">
-                                <span>${item ? '✏️ Chỉnh Sửa' : '➕ Thêm'} Đánh Giá Nhân Sự</span>
+                                <span>${isQuickUpdate ? '⚡ Cập Nhật Nhanh' : (item ? '✏️ Chỉnh Sửa' : '➕ Thêm')} Đánh Giá Nhân Sự</span>
                             </h3>
-                            <div style="font-size: 11px; color: #93c5fd; margin-top: 2px;">Vui lòng chọn Bộ Phận -> Nhân Sự -> Phân Loại và nhập đủ các trường ở Mục 1 để lưu.</div>
+                            <div style="font-size: 11px; color: #93c5fd; margin-top: 2px;">
+                                ${isQuickUpdate ? '🔒 Các mục đã điền trước đó được bảo lưu (khóa sửa). Để sửa mục cũ vui lòng bấm nút "Chỉnh Sửa" ngoài danh sách.' : 'Vui lòng chọn Bộ Phận -> Nhân Sự -> Phân Loại và nhập đủ các trường ở Mục 1 để lưu.'}
+                            </div>
                         </div>
                         <button onclick="window._eeCloseModal()" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 32px; height: 32px; border-radius: 8px; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center;">✕</button>
                     </div>
@@ -1284,6 +1289,9 @@
     };
 
     window._eeCheckSectionLocks = function() {
+        var isQuickUpdate = Boolean(_eeState.currentIsQuickUpdate);
+        var targetSection = _eeState.currentTargetSection;
+
         var dept = document.getElementById('formDepartment') ? document.getElementById('formDepartment').value : '';
         var empSel = document.getElementById('formEmpSelect') ? document.getElementById('formEmpSelect').value : '';
         var evalType = document.getElementById('formEvalType') ? document.getElementById('formEvalType').value : '';
@@ -1296,14 +1304,72 @@
         // Strict Section 1 Validation: MUST fill ALL 8 fields
         var sec1Complete = Boolean(dept && empSel && evalType && errors && evalText && remediation && training && managerCommit);
 
+        var sec1Card = document.getElementById('sec1Card');
+        var sec1Badge = document.getElementById('sec1Badge');
+        var sec1Inputs = sec1Card ? sec1Card.querySelectorAll('input, select, textarea') : [];
+
+        if (isQuickUpdate && sec1Complete) {
+            sec1Inputs.forEach(el => {
+                el.setAttribute('disabled', 'disabled');
+                el.style.background = '#f1f5f9';
+                el.style.color = '#475569';
+                el.style.cursor = 'not-allowed';
+            });
+            if (sec1Badge) {
+                sec1Badge.innerHTML = '🔒 Đã hoàn thành (Khóa sửa)';
+                sec1Badge.style.background = '#e2e8f0';
+                sec1Badge.style.color = '#475569';
+            }
+        } else {
+            sec1Inputs.forEach(el => {
+                el.removeAttribute('disabled');
+                el.style.background = '';
+                el.style.color = '';
+                el.style.cursor = '';
+            });
+            var dSelect = document.getElementById('formDepartment');
+            var eSelect = document.getElementById('formEmpSelect');
+            if (dSelect && dSelect.value === '' && eSelect) {
+                eSelect.setAttribute('disabled', 'disabled');
+            }
+            if (sec1Badge) {
+                sec1Badge.innerHTML = 'Bắt buộc điền đủ 100% Mục 1';
+                sec1Badge.style.background = '#dbeafe';
+                sec1Badge.style.color = '#1e40af';
+            }
+        }
+
         var sec2Card = document.getElementById('sec2Card');
         var sec2Badge = document.getElementById('sec2Badge');
         var sec2Inputs = sec2Card ? sec2Card.querySelectorAll('input, select, textarea') : [];
 
         if (sec1Complete) {
             if (sec2Card) { sec2Card.style.opacity = '1'; sec2Card.style.pointerEvents = 'auto'; }
-            if (sec2Badge) { sec2Badge.innerHTML = '🟢 Đã sẵn sàng nhập'; sec2Badge.style.background = '#dcfce7'; sec2Badge.style.color = '#166534'; }
-            sec2Inputs.forEach(el => el.removeAttribute('disabled'));
+            if (isQuickUpdate && targetSection === 3) {
+                sec2Inputs.forEach(el => {
+                    el.setAttribute('disabled', 'disabled');
+                    el.style.background = '#f1f5f9';
+                    el.style.color = '#475569';
+                    el.style.cursor = 'not-allowed';
+                });
+                if (sec2Badge) {
+                    sec2Badge.innerHTML = '🔒 Đã hoàn thành (Khóa sửa)';
+                    sec2Badge.style.background = '#e2e8f0';
+                    sec2Badge.style.color = '#475569';
+                }
+            } else {
+                sec2Inputs.forEach(el => {
+                    el.removeAttribute('disabled');
+                    el.style.background = '';
+                    el.style.color = '';
+                    el.style.cursor = '';
+                });
+                if (sec2Badge) {
+                    sec2Badge.innerHTML = '🟢 Đã sẵn sàng nhập';
+                    sec2Badge.style.background = '#dcfce7';
+                    sec2Badge.style.color = '#166534';
+                }
+            }
         } else {
             if (sec2Card) { sec2Card.style.opacity = '0.5'; sec2Card.style.pointerEvents = 'none'; }
             if (sec2Badge) { sec2Badge.innerHTML = '🔒 Khóa — Cần điền đủ 100% Mục 1'; sec2Badge.style.background = '#fee2e2'; sec2Badge.style.color = '#991b1b'; }
@@ -1324,7 +1390,12 @@
         if (sec2Complete) {
             if (sec3Card) { sec3Card.style.opacity = '1'; sec3Card.style.pointerEvents = 'auto'; }
             if (sec3Badge) { sec3Badge.innerHTML = '🟢 Đã sẵn sàng nhập'; sec3Badge.style.background = '#dcfce7'; sec3Badge.style.color = '#166534'; }
-            sec3Inputs.forEach(el => el.removeAttribute('disabled'));
+            sec3Inputs.forEach(el => {
+                el.removeAttribute('disabled');
+                el.style.background = '';
+                el.style.color = '';
+                el.style.cursor = '';
+            });
         } else {
             if (sec3Card) { sec3Card.style.opacity = '0.5'; sec3Card.style.pointerEvents = 'none'; }
             if (sec3Badge) { sec3Badge.innerHTML = '🔒 Khóa — Cần điền đủ 100% Mục 2'; sec3Badge.style.background = '#fee2e2'; sec3Badge.style.color = '#991b1b'; }
