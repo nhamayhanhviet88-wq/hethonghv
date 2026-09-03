@@ -1308,6 +1308,19 @@
         var sec1Badge = document.getElementById('sec1Badge');
         var sec1Inputs = sec1Card ? sec1Card.querySelectorAll('input, select, textarea') : [];
 
+        // Check if Section 2 already has existing data
+        var empOpinion = document.getElementById('formEmpOpinion') ? document.getElementById('formEmpOpinion').value.trim() : '';
+        var deadline = document.getElementById('formResolutionDeadline') ? document.getElementById('formResolutionDeadline').value : '';
+        var empCommit = document.getElementById('formEmpCommitment') ? document.getElementById('formEmpCommitment').value.trim() : '';
+        var sec2HasData = Boolean(empOpinion || deadline || empCommit);
+        var sec2Complete = sec1Complete && Boolean(empOpinion && deadline && empCommit);
+
+        // Check if Section 3 already has existing data
+        var managerReport = document.getElementById('formManagerReport') ? document.getElementById('formManagerReport').value.trim() : '';
+        var empReport = document.getElementById('formEmpReport') ? document.getElementById('formEmpReport').value.trim() : '';
+        var sec3HasData = Boolean(managerReport || empReport);
+
+        // --- SECTION 1 LOCKING LOGIC ---
         if (isQuickUpdate && sec1Complete) {
             sec1Inputs.forEach(el => {
                 el.setAttribute('disabled', 'disabled');
@@ -1316,7 +1329,7 @@
                 el.style.cursor = 'not-allowed';
             });
             if (sec1Badge) {
-                sec1Badge.innerHTML = '🔒 Đã hoàn thành (Khóa sửa)';
+                sec1Badge.innerHTML = '🔒 Đã hoàn thành (Sửa bằng nút "Chỉnh Sửa")';
                 sec1Badge.style.background = '#e2e8f0';
                 sec1Badge.style.color = '#475569';
             }
@@ -1339,13 +1352,15 @@
             }
         }
 
+        // --- SECTION 2 LOCKING LOGIC ---
         var sec2Card = document.getElementById('sec2Card');
         var sec2Badge = document.getElementById('sec2Badge');
         var sec2Inputs = sec2Card ? sec2Card.querySelectorAll('input, select, textarea') : [];
 
         if (sec1Complete) {
             if (sec2Card) { sec2Card.style.opacity = '1'; sec2Card.style.pointerEvents = 'auto'; }
-            if (isQuickUpdate && targetSection === 3) {
+            if (isQuickUpdate && sec2HasData) {
+                // If in Quick Update mode and Section 2 ALREADY HAS DATA -> LOCK IT!
                 sec2Inputs.forEach(el => {
                     el.setAttribute('disabled', 'disabled');
                     el.style.background = '#f1f5f9';
@@ -1353,9 +1368,9 @@
                     el.style.cursor = 'not-allowed';
                 });
                 if (sec2Badge) {
-                    sec2Badge.innerHTML = '🔒 Đã hoàn thành (Khóa sửa)';
-                    sec2Badge.style.background = '#e2e8f0';
-                    sec2Badge.style.color = '#475569';
+                    sec2Badge.innerHTML = '🔒 Mục đã có dữ liệu (Sửa bằng nút "Chỉnh Sửa")';
+                    sec2Badge.style.background = '#fef3c7';
+                    sec2Badge.style.color = '#b45309';
                 }
             } else {
                 sec2Inputs.forEach(el => {
@@ -1376,26 +1391,39 @@
             sec2Inputs.forEach(el => el.setAttribute('disabled', 'disabled'));
         }
 
-        var empOpinion = document.getElementById('formEmpOpinion') ? document.getElementById('formEmpOpinion').value.trim() : '';
-        var deadline = document.getElementById('formResolutionDeadline') ? document.getElementById('formResolutionDeadline').value : '';
-        var empCommit = document.getElementById('formEmpCommitment') ? document.getElementById('formEmpCommitment').value.trim() : '';
-
-        // Strict Section 2 Validation: MUST fill ALL 3 fields
-        var sec2Complete = sec1Complete && Boolean(empOpinion && deadline && empCommit);
-
+        // --- SECTION 3 LOCKING LOGIC ---
         var sec3Card = document.getElementById('sec3Card');
         var sec3Badge = document.getElementById('sec3Badge');
         var sec3Inputs = sec3Card ? sec3Card.querySelectorAll('input, select, textarea') : [];
 
         if (sec2Complete) {
             if (sec3Card) { sec3Card.style.opacity = '1'; sec3Card.style.pointerEvents = 'auto'; }
-            if (sec3Badge) { sec3Badge.innerHTML = '🟢 Đã sẵn sàng nhập'; sec3Badge.style.background = '#dcfce7'; sec3Badge.style.color = '#166534'; }
-            sec3Inputs.forEach(el => {
-                el.removeAttribute('disabled');
-                el.style.background = '';
-                el.style.color = '';
-                el.style.cursor = '';
-            });
+            if (isQuickUpdate && sec3HasData) {
+                // If in Quick Update mode and Section 3 ALREADY HAS DATA -> LOCK IT!
+                sec3Inputs.forEach(el => {
+                    el.setAttribute('disabled', 'disabled');
+                    el.style.background = '#f1f5f9';
+                    el.style.color = '#475569';
+                    el.style.cursor = 'not-allowed';
+                });
+                if (sec3Badge) {
+                    sec3Badge.innerHTML = '🔒 Mục đã có dữ liệu (Sửa bằng nút "Chỉnh Sửa")';
+                    sec3Badge.style.background = '#fef3c7';
+                    sec3Badge.style.color = '#b45309';
+                }
+            } else {
+                sec3Inputs.forEach(el => {
+                    el.removeAttribute('disabled');
+                    el.style.background = '';
+                    el.style.color = '';
+                    el.style.cursor = '';
+                });
+                if (sec3Badge) {
+                    sec3Badge.innerHTML = '🟢 Đã sẵn sàng nhập';
+                    sec3Badge.style.background = '#dcfce7';
+                    sec3Badge.style.color = '#166534';
+                }
+            }
         } else {
             if (sec3Card) { sec3Card.style.opacity = '0.5'; sec3Card.style.pointerEvents = 'none'; }
             if (sec3Badge) { sec3Badge.innerHTML = '🔒 Khóa — Cần điền đủ 100% Mục 2'; sec3Badge.style.background = '#fee2e2'; sec3Badge.style.color = '#991b1b'; }
