@@ -1,7 +1,7 @@
 // ========== ĐÁNH GIÁ NHÂN SỰ — CUỘC HỌP CÔNG TY ==========
 (function() {
     var _eeState = {
-        filterYear: '2026',
+        filterYear: 'all',
         filterMonth: 'all',
         department: 'all',
         employeeName: 'all',
@@ -67,7 +67,7 @@
                 </div>
 
                 <!-- KPI Summary Cards -->
-                <div id="eeStatsContainer" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 18px;">
+                <div id="eeStatsContainer" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 18px; width: 100%;">
                     <!-- Injected by JS -->
                 </div>
 
@@ -179,13 +179,17 @@
             if (res && res.items) {
                 var empSet = new Set();
                 var deptSet = new Set();
-                var yearSet = new Set(['2026', '2025', '2024']);
+                var yearSet = new Set(['2026']);
                 res.items.forEach(function(i) {
                     if (i.employee_name && i.employee_name.trim()) empSet.add(i.employee_name.trim());
                     if (i.department && i.department.trim()) deptSet.add(i.department.trim());
                     if (i.month_year) {
-                        var parts = i.month_year.split('/');
-                        if (parts.length === 2 && parts[1]) yearSet.add(parts[1].trim());
+                        var match = i.month_year.match(/\/(\d{2,4})/);
+                        if (match && match[1]) {
+                            var y = match[1];
+                            if (y.length === 2) y = '20' + y;
+                            yearSet.add(y);
+                        }
                     }
                 });
                 _eeState.evaluatedEmployees = Array.from(empSet).sort();
