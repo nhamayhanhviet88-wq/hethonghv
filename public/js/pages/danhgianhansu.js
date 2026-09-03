@@ -1146,6 +1146,9 @@
             var inp = document.getElementById('eeSearchInput');
             if (inp) {
                 _eeState.search = inp.value;
+                if (_eeState.search && _eeState.search.trim() !== '') {
+                    _eeState.statFilter = 'all';
+                }
                 _eeLoadData();
             }
         }, 300);

@@ -87,7 +87,7 @@ async function employeeEvaluationsRoutes(fastify, options) {
 
             if (search && search.trim() !== '') {
                 const s = `%${search.trim()}%`;
-                sql += ` AND improvement_errors LIKE ?`;
+                sql += ` AND improvement_errors ILIKE ?`;
                 params.push(s);
             }
 
