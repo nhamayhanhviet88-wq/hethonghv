@@ -1240,15 +1240,23 @@
                                     </select>
                                 </div>
 
-                                <!-- Row 2: Employee Select & Eval Classification -->
+                                <!-- Row 2: Employee Select & Existing Violation Selection -->
                                 <div>
                                     <label style="display: block; font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 6px;">👤 2. Chọn Nhân Sự <span style="color: #dc2626;">*</span></label>
-                                    <select id="formEmpSelect" style="width: 100%; padding: 9px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; box-sizing: border-box;" onchange="window._eeCheckSectionLocks()">
+                                    <select id="formEmpSelect" style="width: 100%; padding: 9px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; box-sizing: border-box;" onchange="window._eeOnEmpSelectChange()">
                                         <option value="">-- Vui lòng chọn Bộ Phận trước --</option>
                                     </select>
                                 </div>
 
                                 <div>
+                                    <label style="display: block; font-size: 12px; font-weight: 700; color: #b45309; margin-bottom: 6px;">📋 Chọn Lỗi / Cải Thiện (Đã Có Hoặc Tạo Mới) <span style="color: #dc2626;">*</span></label>
+                                    <select id="formExistingViolationSelect" disabled style="width: 100%; padding: 9px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; box-sizing: border-box; font-weight: 700; background: #fffbebf5;" onchange="window._eeOnExistingViolationChange()">
+                                        <option value="">-- Vui lòng chọn Nhân Sự trước --</option>
+                                    </select>
+                                </div>
+
+                                <!-- Row 3: Eval Classification -->
+                                <div style="grid-column: span 2;">
                                     <label style="display: block; font-size: 12px; font-weight: 700; color: #dc2626; margin-bottom: 6px;">🏷️ 3. Phân Loại Đánh Giá <span style="color: #dc2626;">*</span></label>
                                     <select id="formEvalType" style="width: 100%; padding: 9px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; box-sizing: border-box; font-weight: 700;" onchange="window._eeCheckSectionLocks()">
                                         <option value="Cần Cải Thiện" ${currentEvalType === 'Cần Cải Thiện' ? 'selected' : ''}>💡 Cần Cải Thiện</option>
@@ -1256,10 +1264,13 @@
                                     </select>
                                 </div>
 
-                                <!-- Row 3: Full Width Content Area -->
+                                <!-- Row 4: Full Width Content Area & Repeat Alert Banner -->
                                 <div style="grid-column: span 2;">
                                     <label style="display: block; font-size: 12px; font-weight: 700; color: #dc2626; margin-bottom: 6px;">⚠️ Nội Dung Chi Tiết (Cải Thiện / Lỗi) <span style="color: #dc2626;">*</span></label>
                                     <textarea id="formImprovementErrors" rows="2" placeholder="VD: Hay đi muộn, ẩu kích thước..." style="width: 100%; padding: 9px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; box-sizing: border-box; resize: vertical;" oninput="window._eeCheckSectionLocks()">${item ? (item.improvement_errors || '') : ''}</textarea>
+                                    
+                                    <!-- Dynamic Repeat Notice Alert Banner -->
+                                    <div id="repeatNoticeBanner" style="display: none; margin-top: 10px; padding: 12px 16px; border-radius: 10px; align-items: center; gap: 10px; font-size: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); transition: all 0.2s;"></div>
                                 </div>
 
                                 <!-- Row 4: Full Width Manager Evaluation -->
@@ -1456,7 +1467,166 @@
         }
 
         window._eeCheckSectionLocks();
+
+        if (selectedEmpName) {
+            window._eeOnEmpSelectChange();
+        }
     };
+
+    window._eeOnEmpSelectChange = async function() {
+        var empSel = document.getElementById('formEmpSelect');
+        var exSel = document.getElementById('formExistingViolationSelect');
+        var noticeBanner = document.getElementById('repeatNoticeBanner');
+
+        window._eeCheckSectionLocks();
+
+        if (!empSel || !exSel) return;
+        var empName = empSel.value;
+        exSel.innerHTML = '';
+
+        if (!empName) {
+            exSel.disabled = true;
+            exSel.innerHTML = '<option value="">-- Vui lòng chọn Nhân Sự trước --</option>';
+            if (noticeBanner) noticeBanner.style.display = 'none';
+            _eeResetEvalTypeAndErrorsLock(false);
+            return;
+        }
+
+        exSel.disabled = false;
+        exSel.innerHTML = '<option value="">-- Đang tải lịch sử lỗi / cải thiện... --</option>';
+
+        try {
+            var res = await apiCall('/api/employee-evaluations/employee-history?employee_name=' + encodeURIComponent(empName));
+            var history = (res && res.history) ? res.history : [];
+
+            _eeState.currentEmpHistory = history;
+
+            var html = '<option value="">-- Chọn Loại Lỗi / Cần Cải Thiện --</option>';
+            html += '<option value="__CREATE_NEW__">➕ Tạo Mới Lỗi / Cần Cải Thiện</option>';
+
+            if (history.length > 0) {
+                html += '<optgroup label="📋 Lỗi / Cần Cải Thiện Đã Có Của Nhân Sự">';
+                history.forEach(function(item, index) {
+                    var icon = (item.eval_type === 'Lỗi Vi Phạm') ? '⚠️' : '💡';
+                    var label = `${icon} [${item.eval_type}] ${item.improvement_errors} (Đã lặp lại ${item.count} lần)`;
+                    html += `<option value="${index}">${label}</option>`;
+                });
+                html += '</optgroup>';
+            }
+
+            exSel.innerHTML = html;
+        } catch(e) {
+            console.error('Error fetching employee history:', e);
+            exSel.innerHTML = '<option value="">-- Lỗi tải lịch sử --</option><option value="__CREATE_NEW__">➕ Tạo Mới Lỗi / Cần Cải Thiện</option>';
+        }
+
+        if (noticeBanner) noticeBanner.style.display = 'none';
+        _eeResetEvalTypeAndErrorsLock(false);
+    };
+
+    window._eeOnExistingViolationChange = function() {
+        var exSel = document.getElementById('formExistingViolationSelect');
+        var evalTypeSel = document.getElementById('formEvalType');
+        var errArea = document.getElementById('formImprovementErrors');
+        var noticeBanner = document.getElementById('repeatNoticeBanner');
+        var empSel = document.getElementById('formEmpSelect');
+        var empName = empSel ? empSel.value : 'nhân sự';
+
+        if (!exSel || !evalTypeSel || !errArea) return;
+
+        var val = exSel.value;
+        if (!val || val === '') {
+            if (noticeBanner) noticeBanner.style.display = 'none';
+            _eeResetEvalTypeAndErrorsLock(false);
+            window._eeCheckSectionLocks();
+            return;
+        }
+
+        if (val === '__CREATE_NEW__') {
+            // Trường hợp 2: Tạo mới
+            evalTypeSel.disabled = false;
+            evalTypeSel.style.background = '#ffffff';
+            evalTypeSel.style.cursor = 'default';
+
+            errArea.readOnly = false;
+            errArea.disabled = false;
+            errArea.style.background = '#ffffff';
+            errArea.style.cursor = 'text';
+
+            if (errArea.getAttribute('data-is-existing') === 'true') {
+                errArea.value = '';
+                errArea.removeAttribute('data-is-existing');
+            }
+
+            if (noticeBanner) {
+                noticeBanner.style.display = 'flex';
+                noticeBanner.style.background = '#eff6ff';
+                noticeBanner.style.border = '1px solid #93c5fd';
+                noticeBanner.style.color = '#1e40af';
+                noticeBanner.innerHTML = `<span>🆕 <strong>TẠO MỚI:</strong> Nhập lỗi / nội dung cải thiện mới cho nhân sự <strong>${empName}</strong>.</span>`;
+            }
+        } else {
+            // Trường hợp 1: Chọn lỗi/cải thiện đã có (tái phạm)
+            var index = parseInt(val, 10);
+            var history = _eeState.currentEmpHistory || [];
+            var selectedItem = history[index];
+
+            if (selectedItem) {
+                evalTypeSel.value = selectedItem.eval_type;
+                evalTypeSel.disabled = true;
+                evalTypeSel.style.background = '#f1f5f9';
+                evalTypeSel.style.cursor = 'not-allowed';
+
+                errArea.value = selectedItem.improvement_errors;
+                errArea.readOnly = true;
+                errArea.disabled = false;
+                errArea.style.background = '#f1f5f9';
+                errArea.style.cursor = 'not-allowed';
+                errArea.setAttribute('data-is-existing', 'true');
+
+                var nextRepeatCount = (selectedItem.count || 1) + 1;
+                var typeTitle = (selectedItem.eval_type === 'Lỗi Vi Phạm') ? 'LỖI VI PHẠM' : 'NỘI DUNG CẦN CẢI THIỆN';
+                var badgeBg = (selectedItem.eval_type === 'Lỗi Vi Phạm') ? '#fef2f2' : '#fffbeb';
+                var badgeBorder = (selectedItem.eval_type === 'Lỗi Vi Phạm') ? '#f87171' : '#f59e0b';
+                var textColor = (selectedItem.eval_type === 'Lỗi Vi Phạm') ? '#991b1b' : '#92400e';
+
+                if (noticeBanner) {
+                    noticeBanner.style.display = 'flex';
+                    noticeBanner.style.background = badgeBg;
+                    noticeBanner.style.border = '2px solid ' + badgeBorder;
+                    noticeBanner.style.color = textColor;
+                    noticeBanner.innerHTML = `
+                        <div style="font-size: 18px; margin-right: 8px;">🔄</div>
+                        <div>
+                            <div style="font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3px;">
+                                CẢNH BÁO TÁI PHẠM — ${typeTitle} LẶP LẠI LẦN THỨ ${nextRepeatCount}
+                            </div>
+                            <div style="font-size: 11.5px; font-weight: 600; margin-top: 2px;">
+                                Nhân sự <strong>${empName}</strong> đã bị nhắc nhở lỗi này <strong>${selectedItem.count} lần</strong> trong quá khứ. Đây là lần lặp lại thứ <strong>${nextRepeatCount}</strong>!
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        window._eeCheckSectionLocks();
+    };
+
+    function _eeResetEvalTypeAndErrorsLock(isLocked) {
+        var evalTypeSel = document.getElementById('formEvalType');
+        var errArea = document.getElementById('formImprovementErrors');
+        if (evalTypeSel) {
+            evalTypeSel.disabled = isLocked;
+            evalTypeSel.style.background = isLocked ? '#f1f5f9' : '#ffffff';
+            evalTypeSel.style.cursor = isLocked ? 'not-allowed' : 'default';
+        }
+        if (errArea) {
+            errArea.readOnly = isLocked;
+            errArea.style.background = isLocked ? '#f1f5f9' : '#ffffff';
+            errArea.style.cursor = isLocked ? 'not-allowed' : 'text';
+        }
+    }
 
     window._eeCheckSectionLocks = function() {
         var isQuickUpdate = Boolean(_eeState.currentIsQuickUpdate);
@@ -1464,6 +1634,7 @@
 
         var dept = document.getElementById('formDepartment') ? document.getElementById('formDepartment').value : '';
         var empSel = document.getElementById('formEmpSelect') ? document.getElementById('formEmpSelect').value : '';
+        var exVal = document.getElementById('formExistingViolationSelect') ? document.getElementById('formExistingViolationSelect').value : '';
         var evalType = document.getElementById('formEvalType') ? document.getElementById('formEvalType').value : '';
         var errors = document.getElementById('formImprovementErrors') ? document.getElementById('formImprovementErrors').value.trim() : '';
         var evalText = document.getElementById('formManagerEval') ? document.getElementById('formManagerEval').value.trim() : '';
@@ -1471,8 +1642,8 @@
         var training = document.getElementById('formTraining') ? document.getElementById('formTraining').value.trim() : '';
         var managerCommit = document.getElementById('formManagerCommit') ? document.getElementById('formManagerCommit').value.trim() : '';
 
-        // Strict Section 1 Validation: MUST fill ALL 8 fields
-        var sec1Complete = Boolean(dept && empSel && evalType && errors && evalText && remediation && training && managerCommit);
+        // Strict Section 1 Validation: MUST fill ALL fields including exVal
+        var sec1Complete = Boolean(dept && empSel && exVal && evalType && errors && evalText && remediation && training && managerCommit);
 
         var sec1Card = document.getElementById('sec1Card');
         var sec1Badge = document.getElementById('sec1Badge');

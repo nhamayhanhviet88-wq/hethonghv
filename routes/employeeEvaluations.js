@@ -121,6 +121,46 @@ function removeVietnameseAccents(str) {
         .trim();
 }
 
+    // GET /api/employee-evaluations/employee-history — Get history of violations/improvements for a specific employee
+    fastify.get('/api/employee-evaluations/employee-history', async (request, reply) => {
+        try {
+            const { employee_name } = request.query || {};
+            if (!employee_name || employee_name.trim() === '' || employee_name === 'all') {
+                return reply.send({ success: true, history: [] });
+            }
+
+            const reqNormEmp = removeVietnameseAccents(employee_name);
+            const sql = `SELECT id, employee_name, eval_type, improvement_errors, created_at FROM employee_evaluations WHERE improvement_errors IS NOT NULL AND improvement_errors != '' ORDER BY id DESC`;
+            const rows = await db.all(sql, []);
+
+            const historyMap = new Map();
+            for (const r of rows) {
+                if (removeVietnameseAccents(r.employee_name || '') !== reqNormEmp) continue;
+
+                const text = (r.improvement_errors || '').trim();
+                if (!text) continue;
+                const normKey = removeVietnameseAccents(text);
+                if (!historyMap.has(normKey)) {
+                    historyMap.set(normKey, {
+                        improvement_errors: text,
+                        eval_type: r.eval_type || 'Cần Cải Thiện',
+                        count: 1,
+                        latest_id: r.id
+                    });
+                } else {
+                    const existing = historyMap.get(normKey);
+                    existing.count += 1;
+                }
+            }
+
+            const history = Array.from(historyMap.values());
+            return reply.send({ success: true, history });
+        } catch (err) {
+            console.error('Error fetching employee history:', err);
+            return reply.code(500).send({ error: err.message });
+        }
+    });
+
     // GET /api/employee-evaluations/stats — Summary stats
     fastify.get('/api/employee-evaluations/stats', async (request, reply) => {
         try {
