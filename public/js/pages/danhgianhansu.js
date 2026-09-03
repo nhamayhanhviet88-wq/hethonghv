@@ -467,7 +467,7 @@
                     
                     <!-- Group 2: Employee Input -->
                     <td style="padding: 8px 6px; background: #fdf2f8; border-right: 1px solid #fbcfe8; color: #be185d; word-break: break-word; line-height: 1.35; font-size: 12px; white-space: pre-wrap;" title="${item.employee_opinion}">${_clampText(item.employee_opinion)}</td>
-                    <td style="padding: 8px 4px; background: #fdf2f8; border-right: 1px solid #fbcfe8; font-weight: 700; color: #9d174d; font-size: 11.5px; text-align: center;" title="${item.resolution_deadline}">${item.resolution_deadline || '--'}</td>
+                    <td style="padding: 8px 4px; background: #fdf2f8; border-right: 1px solid #fbcfe8; font-weight: 700; color: #9d174d; font-size: 11.5px; text-align: center;" title="${item.resolution_deadline}">${_formatShortDate(item.resolution_deadline)}</td>
                     <td style="padding: 8px 6px; background: #fdf2f8; border-right: 1px solid #fbcfe8; color: #be185d; word-break: break-word; line-height: 1.35; font-size: 12px; white-space: pre-wrap;" title="${item.employee_commitment}">${_clampText(item.employee_commitment)}</td>
                     
                     <!-- Group 3: Progress Report -->
@@ -527,7 +527,7 @@
                         <div style="background: #fdf2f8; padding: 12px; border-radius: 10px; border-left: 4px solid #db2777;">
                             <div style="font-size: 11px; font-weight: 800; color: #be185d; text-transform: uppercase; margin-bottom: 6px;">💬 Ý Kiến & Cam Kết Nhân Sự</div>
                             <div style="font-size: 12px; color: #be185d; margin-bottom: 4px; white-space: pre-wrap;">Ý kiến: <span style="color: #334155;">${item.employee_opinion || '--'}</span></div>
-                            <div style="font-size: 12px; color: #be185d; margin-bottom: 4px;">⏰ Hạn xử lý: <span style="font-weight: 800; color: #9d174d;">${item.resolution_deadline || '--'}</span></div>
+                            <div style="font-size: 12px; color: #be185d; margin-bottom: 4px;">⏰ Hạn xử lý: <span style="font-weight: 800; color: #9d174d;">${_formatShortDate(item.resolution_deadline)}</span></div>
                             <div style="font-size: 12px; color: #be185d; white-space: pre-wrap;">Cam kết: <span style="color: #334155;">${item.employee_commitment || '--'}</span></div>
                         </div>
 
@@ -556,6 +556,19 @@
         return `${hh}:${mm} ${dd}/${mo}/${yy}`;
     }
 
+    
+    function _formatShortDate(dateStr) {
+        if (!dateStr || dateStr === '--') return '--';
+        if (dateStr.includes('-')) {
+            var parts = dateStr.split('-');
+            if (parts.length === 3) {
+                var yy = parts[0].slice(-2);
+                return `${parts[2]}/${parts[1]}/${yy}`;
+            }
+        }
+        return dateStr.replace('/2026', '/26').replace('/2025', '/25').replace('/2024', '/24');
+    }
+    
     function _formatShortKy(txt) {
         if (!txt) return '--';
         var s = txt.replace('/2026', '/26').replace('/2025', '/25').replace('/2024', '/24').replace('Tháng ', 'T');
