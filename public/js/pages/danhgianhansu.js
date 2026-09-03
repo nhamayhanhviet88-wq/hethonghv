@@ -337,7 +337,7 @@
             }
         }
 
-        container.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 18px;';
+        container.style.cssText = 'display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 18px; width: 100%;';
 
         container.innerHTML = `
             <!-- Card 1: Tổng Đánh Giá Quản Lý -->
