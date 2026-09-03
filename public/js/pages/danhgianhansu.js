@@ -406,14 +406,14 @@
     function _eeRenderCompactTableView(container) {
         var html = `
             <div style="background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; overflow-x: auto; width: 100%;">
-                <table style="width: 100%; min-width: 1380px; border-collapse: collapse; text-align: left; font-size: 12px; table-layout: fixed;">
+                <table style="width: 100%; min-width: 1350px; border-collapse: collapse; text-align: left; font-size: 12px; table-layout: fixed;">
                     <thead>
                         <!-- Row 1: Category Groups -->
                         <tr style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.3px; font-weight: 900; color: white;">
-                            <th rowspan="2" style="padding: 10px 2px; background: #1e3a8a; width: 4.8%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.2);">Kỳ</th>
-                            <th rowspan="2" style="padding: 10px 2px; background: #1e3a8a; width: 2.5%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.2);">STT</th>
-                            <th rowspan="2" style="padding: 10px 4px; background: #1e3a8a; width: 8%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Tên Nhân Sự">Tên Nhân Sự</th>
-                            <th rowspan="2" style="padding: 10px 4px; background: #1e3a8a; width: 5.5%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Bộ Phận">Bộ Phận</th>
+                            <th rowspan="2" style="padding: 10px 2px; background: #1e3a8a; width: 5%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.2);">Kỳ</th>
+                            <th rowspan="2" style="padding: 10px 2px; background: #1e3a8a; width: 2.8%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.2);">STT</th>
+                            <th rowspan="2" style="padding: 10px 4px; background: #1e3a8a; width: 8.5%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Tên Nhân Sự">Tên Nhân Sự</th>
+                            <th rowspan="2" style="padding: 10px 4px; background: #1e3a8a; width: 5.8%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Bộ Phận">Bộ Phận</th>
                             
                             <!-- Group 1: Manager Eval (6 columns) -->
                             <th colspan="6" style="padding: 8px 6px; background: #1e3a8a; text-align: center; vertical-align: middle; border-bottom: 1px solid rgba(255,255,255,0.2); border-right: 1px solid rgba(255,255,255,0.2);">👨‍💼 ĐÁNH GIÁ TỪ QUẢN LÝ</th>
@@ -422,25 +422,23 @@
                             <th colspan="3" style="padding: 8px 6px; background: #be185d; text-align: center; vertical-align: middle; border-bottom: 1px solid rgba(255,255,255,0.2); border-right: 1px solid rgba(255,255,255,0.2);">💬 Ý KIẾN & CAM KẾT NHÂN SỰ</th>
                             
                             <!-- Group 3: Progress Report -->
-                            <th colspan="2" style="padding: 8px 6px; background: #0369a1; text-align: center; vertical-align: middle; border-bottom: 1px solid rgba(255,255,255,0.2); border-right: 1px solid rgba(255,255,255,0.2);">📊 BÁO CÁO TIẾN ĐỘ</th>
-                            
-                            <th rowspan="2" style="padding: 10px 4px; background: #334155; width: 5.5%; text-align: center; vertical-align: middle;">Thao Tác</th>
+                            <th colspan="2" style="padding: 8px 6px; background: #0369a1; text-align: center; vertical-align: middle; border-bottom: 1px solid rgba(255,255,255,0.2);">📊 BÁO CÁO TIẾN ĐỘ</th>
                         </tr>
                         <!-- Row 2: Sub-headers centered with Multiline Linebreaks -->
                         <tr style="font-size: 11px; text-transform: uppercase; font-weight: 800; color: white; text-align: center; vertical-align: middle;">
-                            <th style="padding: 8px 2px; background: #1d4ed8; width: 5.5%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Phân<br>Loại</th>
-                            <th style="padding: 8px 4px; background: #1d4ed8; width: 8.5%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Cải Thiện<br>/ Lỗi</th>
-                            <th style="padding: 8px 4px; background: #1d4ed8; width: 10%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Đánh Giá<br>Quản Lý</th>
-                            <th style="padding: 8px 4px; background: #1d4ed8; width: 8.5%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Nội Dung<br>Khắc Phục</th>
-                            <th style="padding: 8px 4px; background: #1d4ed8; width: 8%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Hướng<br>Đào Tạo</th>
-                            <th style="padding: 8px 4px; background: #1d4ed8; width: 7.5%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Quản Lý<br>Cam Kết</th>
+                            <th style="padding: 8px 2px; background: #1d4ed8; width: 5.8%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Phân<br>Loại</th>
+                            <th style="padding: 8px 4px; background: #1d4ed8; width: 9%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Cải Thiện<br>/ Lỗi</th>
+                            <th style="padding: 8px 4px; background: #1d4ed8; width: 10.5%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Đánh Giá<br>Quản Lý</th>
+                            <th style="padding: 8px 4px; background: #1d4ed8; width: 9%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Nội Dung<br>Khắc Phục</th>
+                            <th style="padding: 8px 4px; background: #1d4ed8; width: 8.5%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Hướng<br>Đào Tạo</th>
+                            <th style="padding: 8px 4px; background: #1d4ed8; width: 8%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Quản Lý<br>Cam Kết</th>
                             
-                            <th style="padding: 8px 4px; background: #db2777; width: 7.5%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Ý Kiến<br>Nhân Sự</th>
-                            <th style="padding: 8px 4px; background: #db2777; width: 5.5%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Hạn<br>Xử Lý</th>
-                            <th style="padding: 8px 4px; background: #db2777; width: 7.5%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Nhân Sự<br>Cam Kết</th>
+                            <th style="padding: 8px 4px; background: #db2777; width: 8%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Ý Kiến<br>Nhân Sự</th>
+                            <th style="padding: 8px 4px; background: #db2777; width: 5.8%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Hạn<br>Xử Lý</th>
+                            <th style="padding: 8px 4px; background: #db2777; width: 8%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Nhân Sự<br>Cam Kết</th>
                             
-                            <th style="padding: 8px 4px; background: #0284c7; width: 7.5%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Quản Lý<br>Báo Cáo</th>
-                            <th style="padding: 8px 4px; background: #0284c7; width: 7.5%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Nhân Sự<br>Báo Cáo</th>
+                            <th style="padding: 8px 4px; background: #0284c7; width: 7.8%; text-align: center; vertical-align: middle; border-right: 1px solid rgba(255,255,255,0.15); line-height: 1.3;">Quản Lý<br>Báo Cáo</th>
+                            <th style="padding: 8px 4px; background: #0284c7; width: 7.5%; text-align: center; vertical-align: middle; line-height: 1.3;">Nhân Sự<br>Báo Cáo</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -474,16 +472,7 @@
                     
                     <!-- Group 3: Progress Report -->
                     <td style="padding: 8px 6px; background: #f0f9ff; border-right: 1px solid #bae6fd; color: #0369a1; word-break: break-word; line-height: 1.35; font-size: 12px; white-space: pre-wrap;" title="${item.manager_report}">${_clampText(item.manager_report)}</td>
-                    <td style="padding: 8px 6px; background: #f0f9ff; border-right: 1px solid #bae6fd; color: #0369a1; word-break: break-word; line-height: 1.35; font-size: 12px; white-space: pre-wrap;" title="${item.employee_report}">${_clampText(item.employee_report)}</td>
-                    
-                    <!-- Actions -->
-                    <td style="padding: 8px 4px; text-align: center;" onclick="event.stopPropagation()">
-                        <div style="display: flex; gap: 4px; justify-content: center;">
-                            <button onclick="window._eeOpenDetailModal(${item.id})" title="Xem Chi Tiết" style="padding: 3px 6px; background: #e0e7ff; color: #4338ca; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;">👁️</button>
-                            <button onclick="window._eeOpenFormModal(${item.id})" title="Chỉnh Sửa" style="padding: 3px 6px; background: #f1f5f9; color: #475569; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;">✏️</button>
-                            <button onclick="window._eeDelete(${item.id})" title="Xóa" style="padding: 3px 6px; background: #fee2e2; color: #dc2626; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;">🗑️</button>
-                        </div>
-                    </td>
+                    <td style="padding: 8px 6px; background: #f0f9ff; color: #0369a1; word-break: break-word; line-height: 1.35; font-size: 12px; white-space: pre-wrap;" title="${item.employee_report}">${_clampText(item.employee_report)}</td>
                 </tr>
             `;
         });
@@ -493,7 +482,7 @@
                 </table>
             </div>
             <div style="margin-top: 8px; font-size: 11px; color: #64748b; text-align: right; font-style: italic;">
-                💡 Mẹo: Bảng được tự động căn vừa 100% màn hình. Rê chuột vào ô bất kỳ để xem toàn bộ nội dung hoặc bấm icon 👁️ để xem dạng hồ sơ.
+                💡 Mẹo: Bảng được tự động căn vừa 100% màn hình. Bấm vào bất kỳ hàng nào để xem hồ sơ chi tiết và Chỉnh Sửa / Xóa.
             </div>
         `;
 
