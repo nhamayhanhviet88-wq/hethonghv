@@ -79,15 +79,13 @@ async function employeeEvaluationsRoutes(fastify, options) {
             const items = await db.all(sql, params);
 
             const total = items.length;
-            const pending = items.filter(i => (i.completion_rate || 0) === 0).length;
-            const in_progress = items.filter(i => (i.completion_rate || 0) > 0 && (i.completion_rate || 0) < 100).length;
-            const completed = items.filter(i => (i.completion_rate || 0) >= 100).length;
-            const sumRate = items.reduce((acc, i) => acc + Number(i.completion_rate || 0), 0);
-            const avgRate = total > 0 ? Math.round(sumRate / total) : 0;
+            const completed = items.filter(i => i.status === 'completed' || (i.manager_report && i.manager_report.trim() !== '' && i.employee_report && i.employee_report.trim() !== '')).length;
+            const in_progress = items.filter(i => i.status === 'in_progress' || ((i.manager_report && i.manager_report.trim() !== '') || (i.employee_report && i.employee_report.trim() !== '') || (i.employee_opinion && i.employee_opinion.trim() !== '')) && i.status !== 'completed').length;
+            const pending = items.filter(i => !i.status || i.status === 'pending' || ((!i.manager_report || i.manager_report.trim() === '') && (!i.employee_report || i.employee_report.trim() === '') && (!i.employee_opinion || i.employee_opinion.trim() === ''))).length;
 
             return reply.send({
                 success: true,
-                stats: { total, pending, in_progress, completed, avgRate }
+                stats: { total, pending, in_progress, completed }
             });
         } catch (err) {
             console.error('Error fetching employee_evaluations stats:', err);
@@ -106,8 +104,11 @@ async function employeeEvaluationsRoutes(fastify, options) {
             const month_year = b.month_year || 'Tháng ' + (new Date().getMonth() + 1) + '/' + new Date().getFullYear();
             const rate = Number(b.completion_rate) || 0;
             let status = 'pending';
-            if (rate >= 100) status = 'completed';
-            else if (rate > 0) status = 'in_progress';
+            if ((b.manager_report && b.manager_report.trim() !== '') && (b.employee_report && b.employee_report.trim() !== '')) {
+                status = 'completed';
+            } else if ((b.manager_report && b.manager_report.trim() !== '') || (b.employee_report && b.employee_report.trim() !== '') || (b.employee_opinion && b.employee_opinion.trim() !== '') || (b.employee_commitment && b.employee_commitment.trim() !== '')) {
+                status = 'in_progress';
+            }
 
             const res = await db.run(`
                 INSERT INTO employee_evaluations (
@@ -158,10 +159,17 @@ async function employeeEvaluationsRoutes(fastify, options) {
             }
 
             const rate = b.completion_rate !== undefined ? Number(b.completion_rate) : Number(existing.completion_rate || 0);
-            let status = existing.status;
-            if (rate >= 100) status = 'completed';
-            else if (rate > 0) status = 'in_progress';
-            else status = 'pending';
+            
+            const mgrReport = b.manager_report !== undefined ? b.manager_report : existing.manager_report;
+            const empReport = b.employee_report !== undefined ? b.employee_report : existing.employee_report;
+            const empOpinion = b.employee_opinion !== undefined ? b.employee_opinion : existing.employee_opinion;
+
+            let status = 'pending';
+            if ((mgrReport && mgrReport.trim() !== '') && (empReport && empReport.trim() !== '')) {
+                status = 'completed';
+            } else if ((mgrReport && mgrReport.trim() !== '') || (empReport && empReport.trim() !== '') || (empOpinion && empOpinion.trim() !== '')) {
+                status = 'in_progress';
+            }
 
             await db.run(`
                 UPDATE employee_evaluations SET
