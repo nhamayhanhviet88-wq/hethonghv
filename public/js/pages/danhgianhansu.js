@@ -1619,6 +1619,7 @@
         var errArea = document.getElementById('formImprovementErrors');
         if (evalTypeSel) {
             evalTypeSel.disabled = isLocked;
+            evalTypeSel.style.pointerEvents = isLocked ? 'none' : 'auto';
             evalTypeSel.style.background = isLocked ? '#f1f5f9' : '#ffffff';
             evalTypeSel.style.cursor = isLocked ? 'not-allowed' : 'default';
         }
@@ -1682,6 +1683,12 @@
                 el.style.color = '';
                 el.style.cursor = '';
             });
+
+            // Maintain locked state for formEvalType and formImprovementErrors if an existing item is selected
+            if (exVal && exVal !== '' && exVal !== '__CREATE_NEW__') {
+                _eeResetEvalTypeAndErrorsLock(true);
+            }
+
             var dSelect = document.getElementById('formDepartment');
             var eSelect = document.getElementById('formEmpSelect');
             if (dSelect && dSelect.value === '' && eSelect) {
