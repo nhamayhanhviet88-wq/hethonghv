@@ -1160,7 +1160,7 @@
 
         var modal = document.createElement('div');
         modal.id = 'eeDetailModal';
-        modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15,23,42,0.65); backdrop-filter: blur(4px); z-index: 10000; display: flex; align-items: center; justify-content: center; padding: 20px;';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15,23,42,0.65); backdrop-filter: blur(4px); z-index: 999990; display: flex; align-items: center; justify-content: center; padding: 20px;';
 
         var typeBadgeHtml = (item.eval_type === 'Lỗi Vi Phạm')
             ? '<span style="background: #fee2e2; color: #991b1b; padding: 4px 10px; border-radius: 6px; font-weight: 800; font-size: 11.5px; display: inline-flex; align-items: center; gap: 4px;">⚠️ LỖI VI PHẠM</span>'
@@ -1390,7 +1390,7 @@
         var currentEvalType = item ? (item.eval_type || '') : '';
 
         modalContainer.innerHTML = `
-            <div style="position: fixed; inset: 0; background: rgba(15,23,42,0.65); backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 20px;">
+            <div style="position: fixed; inset: 0; background: rgba(15,23,42,0.65); backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; z-index: 9999990; padding: 20px;">
                 <div style="background: white; border-radius: 20px; width: 100%; max-width: 920px; max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);">
                     <!-- Header -->
                     <div style="padding: 18px 24px; background: linear-gradient(135deg, #1e3a8a, #1e40af); border-radius: 20px 20px 0 0; color: white; display: flex; justify-content: space-between; align-items: center;">
