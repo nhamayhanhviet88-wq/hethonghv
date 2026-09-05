@@ -376,7 +376,9 @@
                 const bImp = isImportant(b);
                 if (aImp && !bImp) return -1;
                 if (!aImp && bImp) return 1;
-                return 0;
+                const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+                const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
+                return aTime - bTime;
             });
 
             if (filtered.length === 0) {
@@ -399,7 +401,10 @@
 
                 return `
                     <div class="m-card ${isCompleted ? 'completed' : ''}" style="${imp ? 'border-left: 4px solid #ef4444; background: #fffdfd;' : ''}">
-                        <div class="m-card-title">${imp ? `<span class="m-badge-important">🔥 QUAN TRỌNG</span>` : ''}${idx + 1} - ${(q.title || '').trim()}</div>
+                        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px;">
+                            <div class="m-card-title" style="flex:1;margin-bottom:0;">${idx + 1} - ${(q.title || '').trim()}</div>
+                            ${imp ? `<span class="m-badge-important" style="flex-shrink:0;white-space:nowrap;">🔥 QUAN TRỌNG</span>` : ''}
+                        </div>
                         <div class="m-card-footer">
                             <div class="m-card-meta">
                                 <span>👤 ${q.creator_name || q.creator_username || ''}</span>
