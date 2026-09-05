@@ -27,7 +27,7 @@ async function preMeetingQuestionsRoutes(fastify, options) {
                 query += ` AND (q.title ILIKE $${params.length} OR q.content ILIKE $${params.length} OR u.full_name ILIKE $${params.length})`;
             }
 
-            query += ` ORDER BY q.is_important DESC, q.created_at DESC`;
+            query += ` ORDER BY COALESCE(q.is_important, FALSE) DESC, q.created_at DESC`;
 
             const questions = await db.all(query, params);
             return { success: true, questions: questions || [] };
