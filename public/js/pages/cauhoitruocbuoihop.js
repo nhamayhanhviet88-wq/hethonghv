@@ -38,12 +38,35 @@
                         </div>
                     </div>
 
-                    <div style="display:flex;align-items:center;gap:12px;">
+                    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
                         <label style="font-size:13px;font-weight:700;color:#475569;">Trạng thái:</label>
                         <select id="chStatusFilter" style="padding:9px 14px;border:1.5px solid #cbd5e1;border-radius:10px;font-size:13px;font-weight:600;color:#1e293b;outline:none;cursor:pointer;background:white;">
                             <option value="all">Tất cả trạng thái</option>
                             <option value="pending" selected>🟠 Chưa trao đổi</option>
                             <option value="completed">🟢 Đã trao đổi</option>
+                        </select>
+
+                        <label style="font-size:13px;font-weight:700;color:#475569;margin-left:6px;">Thời gian:</label>
+                        <select id="chMonthFilter" style="padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:10px;font-size:13px;font-weight:600;color:#1e293b;outline:none;cursor:pointer;background:white;">
+                            <option value="all">📅 Tất cả tháng</option>
+                            <option value="1">Tháng 1</option>
+                            <option value="2">Tháng 2</option>
+                            <option value="3">Tháng 3</option>
+                            <option value="4">Tháng 4</option>
+                            <option value="5">Tháng 5</option>
+                            <option value="6">Tháng 6</option>
+                            <option value="7">Tháng 7</option>
+                            <option value="8">Tháng 8</option>
+                            <option value="9">Tháng 9</option>
+                            <option value="10">Tháng 10</option>
+                            <option value="11">Tháng 11</option>
+                            <option value="12">Tháng 12</option>
+                        </select>
+                        <select id="chYearFilter" style="padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:10px;font-size:13px;font-weight:600;color:#1e293b;outline:none;cursor:pointer;background:white;">
+                            <option value="all">📆 Tất cả năm</option>
+                            <option value="2026">Năm 2026</option>
+                            <option value="2025">Năm 2025</option>
+                            <option value="2024">Năm 2024</option>
                         </select>
                     </div>
                 </div>
@@ -92,6 +115,12 @@
         const statusFilter = document.getElementById('chStatusFilter');
         if (statusFilter) statusFilter.onchange = filterAndRender;
 
+        const monthFilter = document.getElementById('chMonthFilter');
+        if (monthFilter) monthFilter.onchange = filterAndRender;
+
+        const yearFilter = document.getElementById('chYearFilter');
+        if (yearFilter) yearFilter.onchange = filterAndRender;
+
         const form = document.getElementById('chForm');
         if (form) form.onsubmit = handleFormSubmit;
 
@@ -131,9 +160,18 @@
 
         const searchVal = removeAccents(document.getElementById('chSearchInput')?.value.trim() || '');
         const statusVal = document.getElementById('chStatusFilter')?.value || 'all';
+        const monthVal = document.getElementById('chMonthFilter')?.value || 'all';
+        const yearVal = document.getElementById('chYearFilter')?.value || 'all';
 
         let filtered = _allQuestions.filter(q => {
             if (statusVal !== 'all' && q.status !== statusVal) return false;
+
+            if (q.created_at) {
+                const d = new Date(q.created_at);
+                if (monthVal !== 'all' && (d.getMonth() + 1) !== parseInt(monthVal)) return false;
+                if (yearVal !== 'all' && d.getFullYear() !== parseInt(yearVal)) return false;
+            }
+
             if (searchVal) {
                 const title = removeAccents(q.title || '');
                 const content = removeAccents(q.content || '');
@@ -163,7 +201,7 @@
 
             return `
                 <div style="background:white;border-radius:12px;padding:14px 18px;box-shadow:0 2px 8px rgba(0,0,0,0.03);border-left:4px solid ${isCompleted ? '#22c55e' : '#f97316'};display:flex;flex-direction:column;gap:10px;transition:all 0.15s;" onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,0.07)'" onmouseout="this.style.boxShadow='0 2px 8px rgba(0,0,0,0.03)'">
-                    <div style="font-size:14.5px;font-weight:600;color:#0f172a;line-height:1.5;text-decoration:${isCompleted ? 'line-through' : 'none'};opacity:${isCompleted ? '0.65' : '1'};word-break:break-word;white-space:pre-wrap;">${idx + 1} - ${(q.title || '').trim()}</div>
+                    <div style="font-size:14.5px;font-weight:600;color:#0f172a;line-height:1.5;opacity:${isCompleted ? '0.85' : '1'};word-break:break-word;white-space:pre-wrap;">${idx + 1} - ${(q.title || '').trim()}</div>
                     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding-top:8px;border-top:1px dashed #f1f5f9;">
                         <div style="font-size:12px;color:#64748b;display:flex;align-items:center;gap:12px;">
                             <span>👤 ${q.creator_name || q.creator_username || ''}</span>

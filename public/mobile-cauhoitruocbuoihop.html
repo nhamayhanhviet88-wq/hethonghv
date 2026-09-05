@@ -82,7 +82,7 @@
             font-size: 14px; font-weight: 600; color: #0f172a; line-height: 1.45;
             word-break: break-word; white-space: pre-wrap;
         }
-        .m-card.completed .m-card-title { text-decoration: line-through; opacity: 0.65; }
+        .m-card.completed .m-card-title { opacity: 0.85; }
 
         .m-card-footer {
             display: flex; align-items: center; justify-content: space-between; gap: 8px;
@@ -166,6 +166,29 @@
                 <button class="m-pill" onclick="setFilter('all', this)">Tất cả</button>
                 <button class="m-pill active-pending" onclick="setFilter('pending', this)">🟠 Chưa trao đổi</button>
                 <button class="m-pill" onclick="setFilter('completed', this)">🟢 Đã trao đổi</button>
+            </div>
+            <div class="m-date-filters" style="display:flex;gap:8px;margin-top:10px;">
+                <select id="mMonthFilter" onchange="filterAndRender()" style="flex:1;padding:8px 10px;border-radius:10px;border:1px solid #cbd5e1;font-size:12px;font-weight:600;color:#334155;outline:none;background:white;">
+                    <option value="all">📅 Tất cả tháng</option>
+                    <option value="1">Tháng 1</option>
+                    <option value="2">Tháng 2</option>
+                    <option value="3">Tháng 3</option>
+                    <option value="4">Tháng 4</option>
+                    <option value="5">Tháng 5</option>
+                    <option value="6">Tháng 6</option>
+                    <option value="7">Tháng 7</option>
+                    <option value="8">Tháng 8</option>
+                    <option value="9">Tháng 9</option>
+                    <option value="10">Tháng 10</option>
+                    <option value="11">Tháng 11</option>
+                    <option value="12">Tháng 12</option>
+                </select>
+                <select id="mYearFilter" onchange="filterAndRender()" style="flex:1;padding:8px 10px;border-radius:10px;border:1px solid #cbd5e1;font-size:12px;font-weight:600;color:#334155;outline:none;background:white;">
+                    <option value="all">📆 Tất cả năm</option>
+                    <option value="2026">Năm 2026</option>
+                    <option value="2025">Năm 2025</option>
+                    <option value="2024">Năm 2024</option>
+                </select>
             </div>
         </div>
 
@@ -286,9 +309,18 @@
             if (!listEl) return;
 
             const searchVal = removeAccents(document.getElementById('mSearchInput').value.trim());
+            const monthVal = document.getElementById('mMonthFilter')?.value || 'all';
+            const yearVal = document.getElementById('mYearFilter')?.value || 'all';
 
             let filtered = _questions.filter(q => {
                 if (_activeFilter !== 'all' && q.status !== _activeFilter) return false;
+
+                if (q.created_at) {
+                    const d = new Date(q.created_at);
+                    if (monthVal !== 'all' && (d.getMonth() + 1) !== parseInt(monthVal)) return false;
+                    if (yearVal !== 'all' && d.getFullYear() !== parseInt(yearVal)) return false;
+                }
+
                 if (searchVal) {
                     const title = removeAccents(q.title || '');
                     const content = removeAccents(q.content || '');
