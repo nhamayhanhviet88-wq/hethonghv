@@ -105,15 +105,10 @@
                 </div>
             </div>
             <style>
-                @keyframes blinkImportant {
-                    0%, 100% { opacity: 1; transform: scale(1); }
-                    50% { opacity: 0.35; transform: scale(0.96); }
-                }
                 .ch-badge-important {
                     display: inline-flex; align-items: center; justify-content: center;
                     background: #fef2f2; border: 1.5px solid #fca5a5;
                     width: 26px; height: 26px; border-radius: 50%; font-size: 14px;
-                    animation: blinkImportant 1.2s infinite ease-in-out;
                     flex-shrink: 0; cursor: default;
                 }
             </style>
@@ -175,6 +170,24 @@
         return q.is_important === true || q.is_important === 'true' || q.is_important === 1 || q.is_important === '1' || q.is_important === 't';
     }
 
+    function getUserBadgeStyle(creatorId, name) {
+        const palettes = [
+            { bg: '#e0e7ff', text: '#3730a3', border: '#c7d2fe' },
+            { bg: '#dcfce7', text: '#166534', border: '#bbf7d0' },
+            { bg: '#f3e8ff', text: '#6b21a8', border: '#e9d5ff' },
+            { bg: '#ffedd5', text: '#9a3412', border: '#fed7aa' },
+            { bg: '#fce7f3', text: '#9d174d', border: '#fbcfe8' },
+            { bg: '#ccfbf1', text: '#115e59', border: '#99f6e4' },
+            { bg: '#dbeafe', text: '#1e40af', border: '#bfdbfe' },
+            { bg: '#fef3c7', text: '#854d0e', border: '#fde68a' },
+        ];
+        const str = String(creatorId || name || '');
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) hash = (hash << 5) - hash + str.charCodeAt(i);
+        const index = Math.abs(hash) % palettes.length;
+        return palettes[index];
+    }
+
     function removeAccents(str) {
         if (!str) return '';
         return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
@@ -228,13 +241,14 @@
         }
 
         const user = window.currentUser || window._currentUser || {};
-        const canManage = user.role === 'giam_doc' || user.role === 'quan_ly_cap_cao' || user.username === 'trinh';
 
         listEl.innerHTML = filtered.map((q, idx) => {
             const isCompleted = q.status === 'completed';
             const dateStr = q.created_at ? new Date(q.created_at).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
-            const canEditThis = canManage || q.creator_id === user.id;
+            const isOwner = user && q.creator_id === user.id;
             const imp = isImportant(q);
+            const creatorName = q.creator_name || q.creator_username || 'Ẩn danh';
+            const uStyle = getUserBadgeStyle(q.creator_id, creatorName);
 
             return `
                 <div style="background:white;border-radius:12px;padding:14px 18px;box-shadow:0 2px 8px rgba(0,0,0,0.03);border-left:4px solid ${imp ? '#ef4444' : (isCompleted ? '#22c55e' : '#f97316')};${imp ? 'background:#fffdfd;' : ''}display:flex;flex-direction:column;gap:10px;transition:all 0.15s;" onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,0.07)'" onmouseout="this.style.boxShadow='0 2px 8px rgba(0,0,0,0.03)'">
@@ -244,14 +258,16 @@
                     </div>
                     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding-top:8px;border-top:1px dashed #f1f5f9;">
                         <div style="font-size:12px;color:#64748b;display:flex;align-items:center;gap:12px;">
-                            <span>👤 ${q.creator_name || q.creator_username || ''}</span>
+                            <span style="display:inline-flex;align-items:center;gap:4px;background:${uStyle.bg};color:${uStyle.text};border:1px solid ${uStyle.border};padding:2px 9px;border-radius:10px;font-weight:700;font-size:12px;">
+                                👤 ${creatorName}
+                            </span>
                             <span>📅 ${dateStr}</span>
                         </div>
                         <div style="display:flex;align-items:center;gap:8px;">
-                            <button onclick="window.togglePreMeetingQuestionStatus(${q.id}, '${isCompleted ? 'pending' : 'completed'}')" ${canManage ? '' : 'disabled'} title="${canManage ? 'Nhấp để đổi trạng thái' : ''}" style="background:${isCompleted ? '#dcfce7' : '#ffedd5'};border:1.5px solid ${isCompleted ? '#86efac' : '#fed7aa'};color:${isCompleted ? '#15803d' : '#c2410c'};padding:5px 14px;border-radius:16px;font-weight:800;font-size:11.5px;cursor:${canManage ? 'pointer' : 'default'};white-space:nowrap;">
+                            <button onclick="window.togglePreMeetingQuestionStatus(${q.id}, '${isCompleted ? 'pending' : 'completed'}')" ${isOwner ? '' : 'disabled'} title="${isOwner ? 'Nhấp để đổi trạng thái' : 'Chỉ người tạo mới được đổi trạng thái'}" style="background:${isCompleted ? '#dcfce7' : '#ffedd5'};border:1.5px solid ${isCompleted ? '#86efac' : '#fed7aa'};color:${isCompleted ? '#15803d' : '#c2410c'};padding:5px 14px;border-radius:16px;font-weight:800;font-size:11.5px;cursor:${isOwner ? 'pointer' : 'not-allowed'};opacity:${isOwner ? '1' : '0.6'};white-space:nowrap;">
                                 ${isCompleted ? '🟢 Đã trao đổi' : '🟠 Chưa trao đổi'}
                             </button>
-                            ${canEditThis ? `
+                            ${isOwner ? `
                                 <button onclick="window.editPreMeetingQuestion(${q.id})" style="background:#f1f5f9;color:#475569;border:none;width:30px;height:30px;border-radius:8px;font-size:13px;cursor:pointer;" title="Chỉnh sửa">✏️</button>
                                 <button onclick="window.deletePreMeetingQuestion(${q.id})" style="background:#fef2f2;color:#ef4444;border:none;width:30px;height:30px;border-radius:8px;font-size:13px;cursor:pointer;" title="Xóa câu hỏi">🗑️</button>
                             ` : ''}

@@ -109,15 +109,10 @@
         .m-btn-edit { background: #f1f5f9; color: #475569; }
         .m-btn-delete { background: #fef2f2; color: #ef4444; }
 
-        @keyframes blinkImportant {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.35; transform: scale(0.96); }
-        }
         .m-badge-important {
             display: inline-flex; align-items: center; justify-content: center;
             background: #fef2f2; border: 1.5px solid #fca5a5;
             width: 24px; height: 24px; border-radius: 50%; font-size: 13px;
-            animation: blinkImportant 1.2s infinite ease-in-out;
             flex-shrink: 0;
         }
 
@@ -345,6 +340,24 @@
             filterAndRender();
         }
 
+        function getUserBadgeStyle(creatorId, name) {
+            const palettes = [
+                { bg: '#e0e7ff', text: '#3730a3', border: '#c7d2fe' }, // Indigo
+                { bg: '#dcfce7', text: '#166534', border: '#bbf7d0' }, // Emerald
+                { bg: '#f3e8ff', text: '#6b21a8', border: '#e9d5ff' }, // Purple
+                { bg: '#ffedd5', text: '#9a3412', border: '#fed7aa' }, // Amber
+                { bg: '#fce7f3', text: '#9d174d', border: '#fbcfe8' }, // Rose
+                { bg: '#ccfbf1', text: '#115e59', border: '#99f6e4' }, // Teal
+                { bg: '#dbeafe', text: '#1e40af', border: '#bfdbfe' }, // Blue
+                { bg: '#fef3c7', text: '#854d0e', border: '#fde68a' }, // Yellow
+            ];
+            const str = String(creatorId || name || '');
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) hash = (hash << 5) - hash + str.charCodeAt(i);
+            const index = Math.abs(hash) % palettes.length;
+            return palettes[index];
+        }
+
         function filterAndRender() {
             const listEl = document.getElementById('mCardList');
             if (!listEl) return;
@@ -391,13 +404,13 @@
                 return;
             }
 
-            const canManage = _currentUser && (_currentUser.role === 'giam_doc' || _currentUser.role === 'quan_ly_cap_cao' || _currentUser.username === 'trinh');
-
             listEl.innerHTML = filtered.map((q, idx) => {
                 const isCompleted = q.status === 'completed';
                 const dateStr = q.created_at ? new Date(q.created_at).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }) : '';
-                const canEditThis = canManage || (_currentUser && q.creator_id === _currentUser.id);
+                const isOwner = _currentUser && q.creator_id === _currentUser.id;
                 const imp = isImportant(q);
+                const creatorName = q.creator_name || q.creator_username || 'Ẩn danh';
+                const uStyle = getUserBadgeStyle(q.creator_id, creatorName);
 
                 return `
                     <div class="m-card ${isCompleted ? 'completed' : ''}" style="${imp ? 'border-left: 4px solid #ef4444; background: #fffdfd;' : ''}">
@@ -406,15 +419,17 @@
                             ${imp ? `<span class="m-badge-important" title="Quan trọng">🔥</span>` : ''}
                         </div>
                         <div class="m-card-footer">
-                            <div class="m-card-meta">
-                                <span>👤 ${q.creator_name || q.creator_username || ''}</span>
+                            <div class="m-card-meta" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                                <span style="display:inline-flex;align-items:center;gap:4px;background:${uStyle.bg};color:${uStyle.text};border:1px solid ${uStyle.border};padding:2px 8px;border-radius:10px;font-size:11.5px;font-weight:700;">
+                                    👤 ${creatorName}
+                                </span>
                                 <span>📅 ${dateStr}</span>
                             </div>
                             <div class="m-card-actions">
-                                <button class="m-status-toggle ${isCompleted ? 'is-completed' : ''}" onclick="toggleStatus(${q.id}, '${isCompleted ? 'pending' : 'completed'}')" ${canManage ? '' : 'disabled'}>
+                                <button class="m-status-toggle ${isCompleted ? 'is-completed' : ''}" onclick="toggleStatus(${q.id}, '${isCompleted ? 'pending' : 'completed'}')" ${isOwner ? '' : 'disabled style="opacity:0.6;cursor:not-allowed;"'}>
                                     ${isCompleted ? '🟢 Đã trao đổi' : '🟠 Chưa trao đổi'}
                                 </button>
-                                ${canEditThis ? `
+                                ${isOwner ? `
                                     <button class="m-icon-btn m-btn-edit" onclick="editQuestion(${q.id})" title="Sửa">✏️</button>
                                     <button class="m-icon-btn m-btn-delete" onclick="deleteQuestion(${q.id})" title="Xóa">🗑️</button>
                                 ` : ''}
