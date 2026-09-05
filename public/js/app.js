@@ -647,7 +647,11 @@ async function _loadScript(src) {
     const existing = document.querySelector(`script[data-src="${cleanSrc}"], script[src^="${cleanSrc}"]`);
     
     if (existing) {
-        return Promise.resolve();
+        if (src.includes('?v=')) {
+            existing.remove();
+        } else {
+            return Promise.resolve();
+        }
     }
 
     return new Promise((resolve, reject) => {
