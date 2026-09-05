@@ -45,6 +45,9 @@ const PERM_FEATURES = [
     { key: 'tat_bat_fb_ads', label: '2. Tắt / Bật FB Ads', perms: ['view','create','edit','delete'], section: 'BỘ PHẬN MARKETING' },
     { key: 'hen_gio_bat_camp', label: '3. Hẹn Giờ Bật Camp', perms: ['view','create','edit','delete'], section: 'BỘ PHẬN MARKETING' },
 
+    // ===== PHÒNG PHÁT TRIỂN SẢN PHẨM =====
+    { key: 'nghien_cuu_san_pham', label: 'Nghiên Cứu Sản Phẩm', perms: ['view','create','edit','delete'], section: 'PHÒNG PHÁT TRIỂN SẢN PHẨM' },
+
     // ===== BỘ PHẬN SALE =====
     { key: 'xu_ly_don_loi', label: 'Đào Tạo Sale/KD & Xử Lý Lỗi', perms: ['view'], section: 'BỘ PHẬN SALE' },
     { key: 'chamsockhsale', label: 'Chăm Sóc Khách Sale', perms: ['view','create','edit','delete'], section: 'BỘ PHẬN SALE' },
@@ -66,10 +69,7 @@ const PERM_FEATURES = [
     { key: 'bangiao_khoa', label: 'Bàn Giao CV Khóa - Chuỗi', perms: ['view'], section: 'CÔNG VIỆC HẰNG NGÀY' },
 
     // ===== CÔNG VIỆC CHĂM SÓC KHÁCH =====
-    { key: 'don_khach_sll', label: 'Đơn Khách SLL', perms: ['view'], section: 'CÔNG VIỆC CHĂM SÓC KHÁCH' },
-    { key: 'don_khach_nhieu_lan', label: 'Đơn Khách Nhiều Lần', perms: ['view'], section: 'CÔNG VIỆC CHĂM SÓC KHÁCH' },
-    { key: 'don_khach_moi', label: 'Đơn Khách Mới', perms: ['view'], section: 'CÔNG VIỆC CHĂM SÓC KHÁCH' },
-    { key: 'don_quan_he', label: 'Đơn Quan Hệ', perms: ['view'], section: 'CÔNG VIỆC CHĂM SÓC KHÁCH' },
+    { key: 'cham_soc_khach_hang_cu', label: 'Chăm Sóc Khách Hàng Cũ', perms: ['view'], section: 'CÔNG VIỆC CHĂM SÓC KHÁCH' },
 
     // ===== HỖ TRỢ NHÂN VIÊN =====
     { key: 'cap_cuu_sep', label: 'Cấp Cứu Sếp', perms: ['view','create','edit'], section: 'HỖ TRỢ NHÂN VIÊN' },
@@ -85,6 +85,7 @@ const PERM_FEATURES = [
     { key: 'nhan_vien', label: 'Tài Khoản Nhân Viên', perms: ['view','create','edit','delete'], section: 'QUẢN LÝ NHÂN VIÊN' },
     { key: 'co_cau_to_chuc', label: 'Cơ Cấu Tổ Chức', perms: ['view','create','edit','delete'], section: 'QUẢN LÝ NHÂN VIÊN' },
     { key: 'phan_quyen', label: 'Phân Quyền', perms: ['view','edit'], section: 'QUẢN LÝ NHÂN VIÊN' },
+    { key: 'thuong_nhan_vien', label: 'Thưởng Nhân Viên', perms: ['view','create','edit','delete'], section: 'BXH & GIẢI THƯỞNG' },
     { key: 'bxh_affiliate', label: 'Bảng Xếp Hạng Affiliate', perms: ['view'], section: 'BXH & GIẢI THƯỞNG' },
     { key: 'bxh_kinh_doanh', label: 'Bảng Xếp Hạng Kinh Doanh', perms: ['view'], section: 'BXH & GIẢI THƯỞNG' },
     { key: 'bxh_sale', label: 'Bảng Xếp Hạng Sale', perms: ['view'], section: 'BXH & GIẢI THƯỞNG' },

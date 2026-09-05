@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const fastify = require('fastify')({ logger: false, bodyLimit: 52428800 }); // 50MB
 
-// Trigger reload: 2026-08-06_reload_kpisale_reward_fields_added
+// Trigger reload: 2026-09-05_pre_meeting_questions_route
 // ========== DOITAC DOMAIN DETECTION ==========
 // Detect if request comes from affiliate portal (dongphuchv.net)
 const DOITAC_DOMAINS = ['dongphuchv.net', 'www.dongphuchv.net'];
@@ -292,6 +292,19 @@ async function start() {
             department_id INTEGER NOT NULL REFERENCES departments(id) ON DELETE CASCADE,
             created_at TIMESTAMP DEFAULT NOW(),
             PRIMARY KEY (session_id, department_id)
+        )`);
+    } catch(e) { /* exists */ }
+
+    // Migration: Pre-meeting questions
+    try {
+        await db.exec(`CREATE TABLE IF NOT EXISTS pre_meeting_questions (
+            id SERIAL PRIMARY KEY,
+            title TEXT NOT NULL,
+            content TEXT,
+            creator_id INTEGER REFERENCES users(id),
+            status VARCHAR(20) DEFAULT 'pending',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )`);
     } catch(e) { /* exists */ }
 
@@ -1754,6 +1767,7 @@ async function start() {
     fastify.register(require('./routes/kpiSale'));
     fastify.register(require('./routes/kpiMarketing'));
     fastify.register(require('./routes/meetingCommitments'));
+    fastify.register(require('./routes/preMeetingQuestions'));
     fastify.register(require('./routes/meetingProcess'));
     fastify.register(require('./routes/employeeEvaluations'));
     fastify.register(require('./routes/companyRules'));
@@ -1807,6 +1821,7 @@ async function start() {
     fastify.register(require('./routes/khuyenmaigiamgia'));
     fastify.register(require('./routes/ngansachmkt'));
     fastify.register(require('./routes/mobileDashboard'));
+    fastify.register(require('./routes/thuongnhanvien'));
 
 
     // ========== DOITAC DOMAIN — Serve affiliate portal ==========
@@ -2032,6 +2047,11 @@ async function start() {
     // Mobile Ngân Sách Marketing — standalone touch-optimized page
     fastify.get('/m/ngansachmkt', async (request, reply) => {
         return reply.sendFile('mobile-ngansachmkt.html');
+    });
+
+    // Mobile Câu Hỏi Trước Buổi Họp — standalone touch-optimized page
+    fastify.get('/m/cauhoitruocbuoihop', async (request, reply) => {
+        return reply.sendFile('mobile-cauhoitruocbuoihop.html');
     });
 
     // Mobile Nội Quy & Điều Khoản — standalone touch-optimized page

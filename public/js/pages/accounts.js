@@ -247,7 +247,10 @@ async function loadAccounts() {
             <td style="font-size:12px;white-space:nowrap;">${calcWorkDays(user)}</td>
             <td>${user.telegram_group_id ? '✅' : '❌'}</td>
             <td style="text-align:center;">
-                <div class="d-flex align-center gap-10" style="justify-content:center;">
+                <div class="d-flex align-center gap-10" style="justify-content:center;flex-wrap:wrap;">
+                    ${(currentUser.role === 'giam_doc' || currentUser.impersonated_by) && user.role !== 'giam_doc' && user.status !== 'resigned'
+                        ? `<button class="btn btn-xs" onclick="switchUserAccount(${user.id}, '${user.full_name.replace(/'/g, "\\\\'")}', '${user.username}')" title="Xem hệ thống dưới danh nghĩa nhân viên này" style="background:linear-gradient(135deg,#ea580c,#c2410c);color:#fff;border:none;border-radius:8px;font-size:11px;padding:4px 8px;font-weight:700;display:inline-flex;align-items:center;gap:4px;">👁️ Xem TK</button>`
+                        : ''}
                     <button class="btn btn-xs btn-secondary" onclick="showEditAccountModal(${user.id})" title="Sửa">✏️</button>
                     ${user.status === 'active' && user.role !== 'giam_doc' && ['giam_doc','quan_ly_cap_cao'].includes(currentUser.role)
                         ? '<button class="btn btn-xs" onclick="showPromotionModal(' + user.id + ')" title="Thăng / Giáng chức" style="background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;border:none;border-radius:8px;font-size:11px;padding:4px 8px;">⬆️⬇️</button>'
@@ -2027,5 +2030,22 @@ async function submitPromotion(userId) {
     } catch(e) {
         showToast('Lỗi kết nối', 'error');
         if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = '⬆️ Xác Nhận'; }
+    }
+}
+
+async function switchUserAccount(userId, fullName, username) {
+    if (!confirm(`👁️ Xác nhận chuyển sang giao diện của nhân viên ${fullName} (@${username})?\n\nHệ thống sẽ hiển thị menu, phân quyền và chức năng Y HỆT nhân viên này.\n\nBạn có thể quay lại tài khoản Giám Đốc bất kỳ lúc nào bằng nút ở đầu trang.`)) {
+        return;
+    }
+
+    try {
+        const res = await apiCall('/api/auth/switch-user', 'POST', { target_user_id: userId });
+        if (res && res.success) {
+            window.location.href = '/';
+        } else {
+            alert('❌ Lỗi chuyển tài khoản: ' + (res.error || 'Thất bại'));
+        }
+    } catch (e) {
+        alert('❌ Lỗi kết nối: ' + e.message);
     }
 }

@@ -400,6 +400,31 @@ async function settingsRoutes(fastify, options) {
         }
     });
 
+    // ===== NGHIÊN CỨU SẢN PHẨM — CENTRAL SYNC STORE =====
+    fastify.get('/api/nghiencuusanpham/config', async (request, reply) => {
+        try {
+            const row = await db.get("SELECT value FROM app_config WHERE key = 'ncsp_store'");
+            return { value: row ? row.value : null };
+        } catch (e) {
+            return { value: null };
+        }
+    });
+
+    fastify.post('/api/nghiencuusanpham/config', async (request, reply) => {
+        try {
+            const { value } = request.body || {};
+            const strValue = typeof value === 'string' ? value : JSON.stringify(value);
+            await db.run(
+                `INSERT INTO app_config (key, value, updated_at) VALUES ('ncsp_store', ?, NOW())
+                 ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+                [strValue]
+            );
+            return { success: true };
+        } catch (e) {
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
     // ===== QUẢN TRỊ NHÂN SỰ — CENTRAL SYNC STORE =====
     fastify.get('/api/quantrinhansuhv/config', async (request, reply) => {
         try {

@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>❓ Câu Hỏi Trước Buổi Họp — Đồng Phục HV</title>
+    <meta name="description" content="Quản lý câu hỏi trước buổi họp trên điện thoại">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="icon" href="/images/logo.png" type="image/png">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #f8fafc; min-height: 100vh; color: #0f172a;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* Header */
+        .m-header {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            padding: 12px 16px; display: flex; align-items: center; justify-content: space-between;
+            box-shadow: 0 4px 20px rgba(79, 70, 229, 0.3);
+            position: sticky; top: 0; z-index: 100; color: white;
+        }
+        .m-header-left { display: flex; align-items: center; gap: 10px; }
+        .m-back-btn {
+            background: rgba(255,255,255,0.2); border: none; color: white; width: 34px; height: 34px;
+            border-radius: 10px; display: flex; align-items: center; justify-content: center;
+            font-size: 18px; font-weight: 800; cursor: pointer; transition: background 0.15s;
+        }
+        .m-header h1 { font-size: 15px; font-weight: 800; letter-spacing: 0.3px; }
+        .m-add-btn {
+            background: white; color: #4f46e5; border: none; padding: 7px 14px;
+            border-radius: 20px; font-size: 13px; font-weight: 800; cursor: pointer;
+            display: flex; align-items: center; gap: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+
+        /* Main Container */
+        .m-container { padding: 14px; max-width: 500px; margin: 0 auto; padding-bottom: 90px; }
+
+        /* Filter Box */
+        .m-filter-card {
+            background: white; border-radius: 16px; padding: 14px; margin-bottom: 14px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.03); border: 1px solid #e2e8f0;
+        }
+        .m-search-wrap { position: relative; margin-bottom: 12px; }
+        .m-search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 15px; }
+        .m-search-input {
+            width: 100%; padding: 10px 14px 10px 36px; border: 1.5px solid #cbd5e1;
+            border-radius: 12px; font-size: 13px; outline: none; font-family: inherit;
+        }
+        .m-search-input:focus { border-color: #4f46e5; }
+
+        /* Status Tabs / Pills */
+        .m-pills { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
+        .m-pill {
+            padding: 7px 14px; border-radius: 20px; font-size: 12px; font-weight: 700;
+            white-space: nowrap; border: 1px solid #e2e8f0; background: #f1f5f9; color: #64748b;
+            cursor: pointer; transition: all 0.15s;
+        }
+        .m-pill.active-all { background: #4f46e5; color: white; border-color: #4f46e5; }
+        .m-pill.active-pending { background: #ea580c; color: white; border-color: #ea580c; }
+        .m-pill.active-completed { background: #16a34a; color: white; border-color: #16a34a; }
+
+        /* Question Cards */
+        .m-card-list { display: flex; flex-direction: column; gap: 10px; }
+        .m-card {
+            background: white; border-radius: 14px; padding: 14px 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.03); border: 1px solid #e2e8f0;
+            border-left: 5px solid #ea580c; display: flex; flex-direction: column; gap: 10px;
+        }
+        .m-card.completed { border-left-color: #16a34a; }
+
+        .m-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+        .m-card-title {
+            font-size: 14px; font-weight: 700; color: #0f172a; line-height: 1.4;
+        }
+        .m-card.completed .m-card-title { text-decoration: line-through; opacity: 0.75; }
+
+        .m-card-content { font-size: 12.5px; color: #64748b; line-height: 1.4; background: #f8fafc; padding: 8px 10px; border-radius: 8px; }
+
+        .m-card-meta { font-size: 11px; color: #94a3b8; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; }
+
+        /* Action Row */
+        .m-card-actions { display: flex; align-items: center; justify-content: space-between; pt: 4px; }
+        .m-status-toggle {
+            padding: 6px 12px; border-radius: 20px; font-size: 11.5px; font-weight: 800;
+            border: 1px solid #fed7aa; background: #fff7ed; color: #c2410c; cursor: pointer;
+            display: inline-flex; align-items: center; gap: 4px;
+        }
+        .m-status-toggle.is-completed { border-color: #bbf7d0; background: #f0fdf4; color: #15803d; }
+
+        .m-icon-btn {
+            width: 32px; height: 32px; border-radius: 8px; border: none;
+            display: flex; align-items: center; justify-content: center; font-size: 13px; cursor: pointer;
+        }
+        .m-btn-edit { background: #f1f5f9; color: #475569; }
+        .m-btn-delete { background: #fef2f2; color: #dc2626; }
+
+        /* Bottom Sheet Modal */
+        .m-modal-backdrop {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); z-index: 999; backdrop-filter: blur(2px);
+            justify-content: center; align-items: flex-end;
+        }
+        .m-modal-sheet {
+            background: white; width: 100%; max-width: 500px; border-top-left-radius: 20px;
+            border-top-right-radius: 20px; padding: 20px; box-shadow: 0 -10px 30px rgba(0,0,0,0.2);
+            animation: mSlideUp 0.25s ease-out; display: flex; flex-direction: column; gap: 14px;
+        }
+        @keyframes mSlideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+        .m-modal-header { display: flex; justify-content: space-between; align-items: center; }
+        .m-modal-title { font-size: 16px; font-weight: 800; color: #0f172a; }
+        .m-modal-close { background: #f1f5f9; border: none; width: 30px; height: 30px; border-radius: 50%; font-size: 14px; font-weight: 800; color: #64748b; }
+
+        .m-form-group { display: flex; flex-direction: column; gap: 6px; }
+        .m-form-label { font-size: 12.5px; font-weight: 700; color: #334155; }
+        .m-form-input, .m-form-textarea, .m-form-select {
+            width: 100%; padding: 10px 12px; border: 1.5px solid #cbd5e1; border-radius: 10px;
+            font-size: 13.5px; font-family: inherit; outline: none;
+        }
+        .m-form-input:focus, .m-form-textarea:focus, .m-form-select:focus { border-color: #4f46e5; }
+
+        .m-form-submit {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed); color: white; border: none;
+            padding: 12px; border-radius: 12px; font-size: 14px; font-weight: 800; cursor: pointer;
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3); margin-top: 6px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header Mobile -->
+    <header class="m-header">
+        <div class="m-header-left">
+            <button class="m-back-btn" onclick="window.location.href='/m/dashboard'" title="Quay lại">‹</button>
+            <h1>❓ CÂU HỎI TRƯỚC HỌP</h1>
+        </div>
+        <button id="mAddBtn" class="m-add-btn">
+            <span>➕</span> Thêm
+        </button>
+    </header>
+
+    <!-- Main Container -->
+    <main class="m-container">
+        <!-- Search & Filter Card -->
+        <div class="m-filter-card">
+            <div class="m-search-wrap">
+                <span class="m-search-icon">🔍</span>
+                <input type="text" id="mSearchInput" class="m-search-input" placeholder="Tìm câu hỏi, người tạo...">
+            </div>
+            <div class="m-pills">
+                <button class="m-pill active-all" onclick="setFilter('all', this)">Tất cả</button>
+                <button class="m-pill" onclick="setFilter('pending', this)">🟠 Chưa trao đổi</button>
+                <button class="m-pill" onclick="setFilter('completed', this)">🟢 Đã trao đổi</button>
+            </div>
+        </div>
+
+        <!-- Questions List -->
+        <div id="mCardList" class="m-card-list">
+            <div style="text-align:center;padding:40px;color:#64748b;">⏳ Đang tải dữ liệu...</div>
+        </div>
+    </main>
+
+    <!-- Bottom Sheet Modal -->
+    <div id="mModal" class="m-modal-backdrop">
+        <div class="m-modal-sheet">
+            <div class="m-modal-header">
+                <h3 id="mModalTitle" class="m-modal-title">TẠO CÂU HỎI MỚI</h3>
+                <button class="m-modal-close" onclick="closeModal()">✕</button>
+            </div>
+            <form id="mForm" onsubmit="handleFormSubmit(event)">
+                <div class="m-form-group" style="margin-bottom:12px;">
+                    <label class="m-form-label">Nội dung câu hỏi <span style="color:#ef4444;">*</span></label>
+                    <textarea id="mTitleInput" class="m-form-textarea" rows="3" placeholder="Nhập câu hỏi cần trao đổi..." required></textarea>
+                </div>
+                <div class="m-form-group" style="margin-bottom:12px;">
+                    <label class="m-form-label">Ghi chú chi tiết (nếu có)</label>
+                    <textarea id="mContentInput" class="m-form-textarea" rows="2" placeholder="Ghi chú thêm thông tin..."></textarea>
+                </div>
+                <div class="m-form-group" style="margin-bottom:14px;">
+                    <label class="m-form-label">Trạng thái</label>
+                    <select id="mStatusInput" class="m-form-select">
+                        <option value="pending">🟠 Chưa trao đổi</option>
+                        <option value="completed">🟢 Đã trao đổi</option>
+                    </select>
+                </div>
+                <button type="submit" class="m-form-submit">💾 LƯU CÂU HỎI</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let _questions = [];
+        let _activeFilter = 'all';
+        let _editingId = null;
+        let _currentUser = null;
+
+        async function initMobilePage() {
+            try {
+                // Fetch me
+                const meRes = await fetch('/api/auth/me', { credentials: 'include' });
+                const meData = await meRes.json();
+                if (meData && meData.user) {
+                    _currentUser = meData.user;
+                }
+
+                // Authority check for Add button
+                const canManage = _currentUser && (_currentUser.role === 'giam_doc' || _currentUser.role === 'quan_ly_cap_cao' || _currentUser.username === 'trinh');
+                const addBtn = document.getElementById('mAddBtn');
+                if (addBtn && !canManage) {
+                    addBtn.style.display = 'none';
+                } else if (addBtn) {
+                    addBtn.onclick = () => openModal();
+                }
+
+                // Event listeners
+                document.getElementById('mSearchInput').oninput = filterAndRender;
+
+                await loadQuestions();
+            } catch (e) {
+                console.error('Init error:', e);
+            }
+        }
+
+        async function loadQuestions() {
+            const listEl = document.getElementById('mCardList');
+            try {
+                const res = await fetch('/api/pre-meeting-questions', { credentials: 'include' });
+                const data = await res.json();
+                if (data && data.success) {
+                    _questions = data.questions || [];
+                    filterAndRender();
+                } else {
+                    listEl.innerHTML = `<div style="text-align:center;padding:40px;color:#ef4444;">⚠️ ${data.error || 'Lỗi tải danh sách'}</div>`;
+                }
+            } catch (e) {
+                listEl.innerHTML = `<div style="text-align:center;padding:40px;color:#ef4444;">⚠️ Lỗi kết nối: ${e.message}</div>`;
+            }
+        }
+
+        function removeAccents(str) {
+            if (!str) return '';
+            return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+        }
+
+        function setFilter(filterType, btn) {
+            _activeFilter = filterType;
+            document.querySelectorAll('.m-pill').forEach(p => {
+                p.className = 'm-pill';
+            });
+            if (filterType === 'all') btn.className = 'm-pill active-all';
+            if (filterType === 'pending') btn.className = 'm-pill active-pending';
+            if (filterType === 'completed') btn.className = 'm-pill active-completed';
+            filterAndRender();
+        }
+
+        function filterAndRender() {
+            const listEl = document.getElementById('mCardList');
+            if (!listEl) return;
+
+            const searchVal = removeAccents(document.getElementById('mSearchInput').value.trim());
+
+            let filtered = _questions.filter(q => {
+                if (_activeFilter !== 'all' && q.status !== _activeFilter) return false;
+                if (searchVal) {
+                    const title = removeAccents(q.title || '');
+                    const content = removeAccents(q.content || '');
+                    const creator = removeAccents(q.creator_name || '');
+                    return title.includes(searchVal) || content.includes(searchVal) || creator.includes(searchVal);
+                }
+                return true;
+            });
+
+            if (filtered.length === 0) {
+                listEl.innerHTML = `
+                    <div style="background:white;border-radius:14px;padding:30px;text-align:center;color:#94a3b8;box-shadow:0 2px 8px rgba(0,0,0,0.03);">
+                        <span style="font-size:36px;display:block;margin-bottom:8px;">💬</span>
+                        <p style="margin:0;font-size:14px;font-weight:600;">Không tìm thấy câu hỏi phù hợp</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const canManage = _currentUser && (_currentUser.role === 'giam_doc' || _currentUser.role === 'quan_ly_cap_cao' || _currentUser.username === 'trinh');
+
+            listEl.innerHTML = filtered.map(q => {
+                const isCompleted = q.status === 'completed';
+                const dateStr = q.created_at ? new Date(q.created_at).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }) : '';
+                const canEditThis = canManage || (_currentUser && q.creator_id === _currentUser.id);
+
+                return `
+                    <div class="m-card ${isCompleted ? 'completed' : ''}">
+                        <div class="m-card-top">
+                            <div class="m-card-title">${q.title}</div>
+                        </div>
+
+                        ${q.content ? `<div class="m-card-content">${q.content}</div>` : ''}
+
+                        <div class="m-card-meta">
+                            <span>👤 ${q.creator_name || q.creator_username || 'Hệ thống'} ${q.creator_department ? `(${q.creator_department})` : ''}</span>
+                            <span>📅 ${dateStr}</span>
+                        </div>
+
+                        <div class="m-card-actions">
+                            <button class="m-status-toggle ${isCompleted ? 'is-completed' : ''}" onclick="toggleStatus(${q.id}, '${isCompleted ? 'pending' : 'completed'}')" ${canManage ? '' : 'disabled'}>
+                                ${isCompleted ? '🟢 ĐÃ TRAO ĐỔI' : '🟠 CHƯA TRAO ĐỔI'}
+                            </button>
+
+                            ${canEditThis ? `
+                                <div style="display:flex;gap:6px;">
+                                    <button class="m-icon-btn m-btn-edit" onclick="editQuestion(${q.id})">✏️</button>
+                                    <button class="m-icon-btn m-btn-delete" onclick="deleteQuestion(${q.id})">🗑️</button>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function toggleStatus(id, newStatus) {
+            try {
+                const res = await fetch(`/api/pre-meeting-questions/${id}/status`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ status: newStatus })
+                });
+                const data = await res.json();
+                if (data && data.success) {
+                    const q = _questions.find(item => item.id === id);
+                    if (q) q.status = newStatus;
+                    filterAndRender();
+                } else {
+                    alert('Lỗi: ' + (data.error || 'Thất bại'));
+                }
+            } catch (e) {
+                alert('Lỗi kết nối');
+            }
+        }
+
+        function openModal(question = null) {
+            _editingId = question ? question.id : null;
+            document.getElementById('mModalTitle').textContent = _editingId ? 'CHỈNH SỬA CÂU HỎI' : 'TẠO CÂU HỎI MỚI';
+            document.getElementById('mTitleInput').value = question ? (question.title || '') : '';
+            document.getElementById('mContentInput').value = question ? (question.content || '') : '';
+            document.getElementById('mStatusInput').value = question ? (question.status || 'pending') : 'pending';
+            document.getElementById('mModal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('mModal').style.display = 'none';
+            _editingId = null;
+        }
+
+        function editQuestion(id) {
+            const q = _questions.find(item => item.id === id);
+            if (q) openModal(q);
+        }
+
+        async function deleteQuestion(id) {
+            if (!confirm('Xóa câu hỏi này?')) return;
+            try {
+                const res = await fetch(`/api/pre-meeting-questions/${id}`, { method: 'DELETE', credentials: 'include' });
+                const data = await res.json();
+                if (data && data.success) {
+                    _questions = _questions.filter(q => q.id !== id);
+                    filterAndRender();
+                } else {
+                    alert('Lỗi xóa: ' + (data.error || 'Thất bại'));
+                }
+            } catch (e) {
+                alert('Lỗi kết nối');
+            }
+        }
+
+        async function handleFormSubmit(e) {
+            e.preventDefault();
+            const title = document.getElementById('mTitleInput').value.trim();
+            const content = document.getElementById('mContentInput').value.trim();
+            const status = document.getElementById('mStatusInput').value;
+
+            if (!title) return;
+
+            try {
+                let res;
+                if (_editingId) {
+                    res = await fetch(`/api/pre-meeting-questions/${_editingId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({ title, content, status })
+                    });
+                } else {
+                    res = await fetch('/api/pre-meeting-questions', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({ title, content, status })
+                    });
+                }
+
+                const data = await res.json();
+                if (data && data.success) {
+                    closeModal();
+                    await loadQuestions();
+                } else {
+                    alert('Lỗi: ' + (data.error || 'Thất bại'));
+                }
+            } catch (err) {
+                alert('Lỗi kết nối');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', initMobilePage);
+    </script>
+</body>
+</html>

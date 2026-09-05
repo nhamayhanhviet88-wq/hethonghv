@@ -70,6 +70,10 @@ async function initMobileNavigation() {
         window._currentUser = data.user;
         const user = data.user;
         const perms = user.permissions || {};
+
+        if (user.impersonated_by && typeof renderImpersonationBanner === 'function') {
+            renderImpersonationBanner(user);
+        }
         
         // Find current page info based on path
         const currentPath = window.location.pathname.toLowerCase().replace(/\/$/, '');

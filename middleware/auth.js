@@ -55,11 +55,25 @@ async function authenticate(request, reply) {
 
 function requireRole(...roles) {
     return function (request, reply, done) {
-        if (!request.user || !roles.includes(request.user.role)) {
+        if (!request.user) {
             reply.code(403).send({ error: 'Không có quyền truy cập' });
             return;
         }
-        done();
+        if (roles.includes(request.user.role)) {
+            done();
+            return;
+        }
+        // Trường hợp Giám Đốc đang đóng vai (impersonating) nhân viên khác
+        if (request.cookies?.director_token) {
+            try {
+                const decodedDir = jwt.verify(request.cookies.director_token, process.env.JWT_SECRET);
+                if (decodedDir && decodedDir.role === 'giam_doc') {
+                    done();
+                    return;
+                }
+            } catch (e) {}
+        }
+        reply.code(403).send({ error: 'Không có quyền truy cập' });
     };
 }
 

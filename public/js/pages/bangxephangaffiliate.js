@@ -64,6 +64,9 @@ async function renderBangXepHangAffiliatePage(container) {
                         <button class="bxh-prize-btn" onclick="showBxhPrizeModal()">
                             ★ Xem Giải Thưởng
                         </button>
+                        <a href="/thuongnhanvien" onclick="if(window.navigateTo){event.preventDefault();navigateTo('/thuongnhanvien');}" class="bxh-prize-btn" style="background:linear-gradient(135deg,#e65100,#f57c00);color:white;text-decoration:none;">
+                            🎁 Thưởng Nhân Viên
+                        </a>
                     </div>
                     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
                         <select id="bxhValuePicker" class="form-control" style="width:auto;min-width:200px;">${_gtBuildPeriodOptions('monthly')}</select>

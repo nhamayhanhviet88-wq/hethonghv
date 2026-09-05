@@ -180,12 +180,6 @@ async function renderCRMKocKolPage(container) {
     window._crmReloadCurrentPage = () => loadCrmKockolData();
     window._crmRenderCurrentTable = () => _kockolRenderFilteredTable();
     _crmIsManager = ['giam_doc', 'quan_ly', 'quan_ly_cap_cao', 'truong_phong'].includes(currentUser.role);
-    if (_crmIsManager) {
-        const [staffRes, deptsRes] = await Promise.all([apiCall('/api/managed-staff'), apiCall('/api/departments')]);
-        _crmSidebarUsers = (staffRes.users || []).filter(u => ['nhan_vien', 'truong_phong', 'quan_ly', 'quan_ly_cap_cao'].includes(u.role));
-        _crmSidebarDepts = deptsRes.departments || deptsRes || [];
-        if (['quan_ly_cap_cao','quan_ly','truong_phong'].includes(currentUser.role)) { _crmSidebarSelectedUserId = currentUser.id; } else { _crmSidebarSelectedUserId = null; }
-    }
     const sidebarHTML = _crmIsManager ? `<div id="crmSidebar" style="width:260px;min-width:260px;background:linear-gradient(180deg,#f8fafc,#f1f5f9);border-right:1.5px solid #e2e8f0;display:flex;flex-direction:column;overflow:hidden;"><div style="padding:14px;border-bottom:1.5px solid #e2e8f0;"><h4 style="margin:0;color:#122546;font-size:14px;font-weight:800;">📋 Chăm Sóc KOL/KOC</h4></div><div id="crmSidebarList" style="flex:1;overflow:auto;padding:8px;"></div></div>` : '';
     container.innerHTML = `<div style="display:flex;height:calc(100vh - 120px);gap:0;">${sidebarHTML}<div id="crmMainContent" style="flex:1;overflow:auto;padding:16px 20px;">` + `
         <style>
@@ -214,9 +208,71 @@ async function renderCRMKocKolPage(container) {
             .crm-pagination button.active { background:linear-gradient(135deg,#3b82f6,#2563eb); color:white; border-color:#3b82f6; box-shadow:0 2px 8px rgba(59,130,246,.4); }
             .crm-pagination button:disabled { opacity:.4; cursor:not-allowed; }
             .crm-pagination .pg-info { color:#94a3b8; font-size:12px; font-weight:600; margin:0 8px; }
+
+            /* Sparkle Shimmer Diamond Button Animations */
+            @keyframes cskhShimmer {
+                0% { transform: translateX(-180%) rotate(25deg); }
+                100% { transform: translateX(280%) rotate(25deg); }
+            }
+            @keyframes cskhGlowPulse {
+                0%, 100% { box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4), 0 0 15px rgba(96, 165, 250, 0.5); border-color: #60a5fa; }
+                50% { box-shadow: 0 6px 28px rgba(37, 99, 235, 0.8), 0 0 35px rgba(147, 197, 253, 0.95); border-color: #bfdbfe; }
+            }
+            @keyframes cskhDiamondPulse {
+                0%, 100% { transform: scale(1) rotate(0deg); }
+                50% { transform: scale(1.3) rotate(15deg); filter: drop-shadow(0 0 10px #93c5fd); }
+            }
+            .btn-shimmer-diamond {
+                position: relative;
+                overflow: hidden;
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                padding: 10px 22px;
+                border-radius: 14px;
+                border: 2px solid #60a5fa;
+                color: #ffffff !important;
+                font-size: 14px;
+                font-weight: 800;
+                cursor: pointer;
+                background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 50%, #3b82f6 100%);
+                text-decoration: none !important;
+                animation: cskhGlowPulse 2.2s infinite ease-in-out;
+                transition: all .25s ease;
+            }
+            .btn-shimmer-diamond::after {
+                content: '';
+                position: absolute;
+                top: -50%;
+                left: -50%;
+                width: 65%;
+                height: 200%;
+                background: linear-gradient(
+                    90deg,
+                    rgba(255, 255, 255, 0) 0%,
+                    rgba(255, 255, 255, 0.75) 50%,
+                    rgba(255, 255, 255, 0) 100%
+                );
+                transform: rotate(25deg);
+                animation: cskhShimmer 2.8s infinite ease-in-out;
+                pointer-events: none;
+            }
+            .btn-shimmer-diamond .diamond-icon {
+                display: inline-block;
+                font-size: 18px;
+                animation: cskhDiamondPulse 2s infinite ease-in-out;
+            }
+            .btn-shimmer-diamond:hover {
+                transform: translateY(-3px) scale(1.03);
+                box-shadow: 0 8px 32px rgba(37, 99, 235, 0.9), 0 0 45px rgba(147, 197, 253, 1);
+            }
         </style>
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-            <div></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:10px;">
+            <div>
+                <a href="/chamsockhachangcu" target="_blank" class="btn-shimmer-diamond">
+                    <span class="diamond-icon">💎</span> Chăm Sóc Khách Hàng Cũ
+                </a>
+            </div>
             <a href="/quytacnuttuvancrmkockol" onclick="event.preventDefault();navigate('quytacnuttuvancrmkockol')"
                 style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;border-radius:10px;
                 border:2px solid #f97316;color:#f97316;font-size:13px;font-weight:800;cursor:pointer;
@@ -300,7 +356,17 @@ async function renderCRMKocKolPage(container) {
     `;
     const dcArea = document.getElementById('crmDateChipsArea');
     if (dcArea) dcArea.innerHTML = _crmBuildDateFilterHTML();
-    if (_crmIsManager) _crmRenderSidebar();
+
+    if (_crmIsManager) {
+        (window._crmGetStaffAndDepts ? window._crmGetStaffAndDepts() : Promise.all([apiCall('/api/managed-staff'), apiCall('/api/departments')])).then(([staffRes, deptsRes]) => {
+            _crmSidebarUsers = (staffRes.users || []).filter(u => ['nhan_vien', 'truong_phong', 'quan_ly', 'quan_ly_cap_cao'].includes(u.role));
+            _crmSidebarDepts = deptsRes.departments || deptsRes || [];
+            if (['quan_ly_cap_cao','quan_ly','truong_phong'].includes(currentUser.role)) {
+                if (_crmSidebarSelectedUserId === null) _crmSidebarSelectedUserId = currentUser.id;
+            }
+            _crmRenderSidebar();
+        }).catch(err => console.warn('Sidebar fetch notice:', err));
+    }
 
     document.getElementById('crmFilterConsultType').addEventListener('change', () => _kockolRenderFilteredTable());
     let st;

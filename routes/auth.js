@@ -125,7 +125,128 @@ async function authRoutes(fastify, options) {
     // Đăng xuất
     fastify.post('/api/auth/logout', async (request, reply) => {
         reply.clearCookie('token', { path: '/' });
+        reply.clearCookie('director_token', { path: '/' });
         return { success: true };
+    });
+
+    // Chuyển sang tài khoản nhân viên (User Impersonation - dành cho Giám Đốc)
+    fastify.post('/api/auth/switch-user', { preHandler: authenticate }, async (request, reply) => {
+        const { target_user_id } = request.body || {};
+        if (!target_user_id) {
+            return reply.code(400).send({ error: 'Vui lòng cung cấp ID nhân viên cần chuyển' });
+        }
+
+        // Check if director token exists in cookie OR current user is giam_doc
+        let currentDirector = null;
+        let directorToken = request.cookies?.director_token;
+
+        if (directorToken) {
+            try {
+                const decodedDir = jwt.verify(directorToken, process.env.JWT_SECRET);
+                if (decodedDir && decodedDir.role === 'giam_doc') {
+                    currentDirector = decodedDir;
+                }
+            } catch (e) {}
+        }
+
+        if (!currentDirector) {
+            if (request.user && request.user.role === 'giam_doc') {
+                currentDirector = request.user;
+                directorToken = request.cookies?.token;
+            }
+        }
+
+        if (!currentDirector) {
+            return reply.code(403).send({ error: '🔒 Chỉ tài khoản Giám Đốc mới có quyền đóng vai xem tài khoản nhân viên khác.' });
+        }
+
+        const targetUser = await db.get(
+            'SELECT id, username, full_name, role, status, token_version FROM users WHERE id = ?',
+            [target_user_id]
+        );
+
+        if (!targetUser) {
+            return reply.code(404).send({ error: 'Không tìm thấy tài khoản nhân viên được chọn' });
+        }
+
+        if (targetUser.status === 'resigned') {
+            return reply.code(400).send({ error: 'Không thể chuyển sang tài khoản nhân viên đã nghỉ việc' });
+        }
+
+        // Create target user token with impersonation metadata
+        const newToken = jwt.sign(
+            {
+                id: targetUser.id,
+                username: targetUser.username,
+                full_name: targetUser.full_name,
+                role: targetUser.role,
+                tv: targetUser.token_version || 0,
+                impersonated_by: {
+                    id: currentDirector.id,
+                    username: currentDirector.username,
+                    full_name: currentDirector.full_name
+                }
+            },
+            process.env.JWT_SECRET,
+            { expiresIn: '7d' }
+        );
+
+        // Keep director_token cookie safe
+        reply.setCookie('director_token', directorToken, {
+            path: '/',
+            httpOnly: true,
+            sameSite: 'lax',
+            maxAge: 7 * 24 * 60 * 60
+        });
+
+        // Set token cookie to target user
+        reply.setCookie('token', newToken, {
+            path: '/',
+            httpOnly: true,
+            sameSite: 'lax',
+            maxAge: 7 * 24 * 60 * 60
+        });
+
+        return {
+            success: true,
+            message: `Đã chuyển sang tài khoản nhân viên ${targetUser.full_name}`,
+            user: {
+                id: targetUser.id,
+                username: targetUser.username,
+                full_name: targetUser.full_name,
+                role: targetUser.role
+            }
+        };
+    });
+
+    // Quay lại tài khoản Giám Đốc
+    fastify.post('/api/auth/switch-back', async (request, reply) => {
+        const directorToken = request.cookies?.director_token;
+        if (!directorToken) {
+            return reply.code(400).send({ error: 'Không tìm thấy phiên làm việc của Giám Đốc' });
+        }
+
+        try {
+            const decodedDir = jwt.verify(directorToken, process.env.JWT_SECRET);
+            if (!decodedDir || decodedDir.role !== 'giam_doc') {
+                return reply.code(403).send({ error: 'Phiên Giám Đốc không hợp lệ' });
+            }
+
+            // Restore original director token
+            reply.setCookie('token', directorToken, {
+                path: '/',
+                httpOnly: true,
+                sameSite: 'lax',
+                maxAge: 7 * 24 * 60 * 60
+            });
+
+            // Clear director_token cookie
+            reply.clearCookie('director_token', { path: '/' });
+
+            return { success: true, message: 'Đã quay lại tài khoản Giám Đốc thành công' };
+        } catch (e) {
+            return reply.code(400).send({ error: 'Mã phiên Giám Đốc không hợp lệ hoặc đã hết hạn' });
+        }
     });
 
     // Lấy thông tin user hiện tại + effective permissions
@@ -137,6 +258,22 @@ async function authRoutes(fastify, options) {
 
         if (!user) {
             return reply.code(404).send({ error: 'Không tìm thấy tài khoản' });
+        }
+
+        // Attach impersonated_by metadata if active
+        if (request.user && request.user.impersonated_by) {
+            user.impersonated_by = request.user.impersonated_by;
+        } else if (request.cookies?.director_token) {
+            try {
+                const decodedDir = jwt.verify(request.cookies.director_token, process.env.JWT_SECRET);
+                if (decodedDir && decodedDir.role === 'giam_doc') {
+                    user.impersonated_by = {
+                        id: decodedDir.id,
+                        username: decodedDir.username,
+                        full_name: decodedDir.full_name
+                    };
+                }
+            } catch (e) {}
         }
 
         // Compute effective permissions — DYNAMIC: reads from DB, no hardcoded feature list
