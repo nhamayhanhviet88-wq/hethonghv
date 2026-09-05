@@ -162,21 +162,22 @@
             const canEditThis = canManage || q.creator_id === user.id;
 
             return `
-                <div style="background:white;border-radius:10px;padding:12px 16px;box-shadow:0 2px 8px rgba(0,0,0,0.03);border-left:4px solid ${isCompleted ? '#22c55e' : '#f97316'};display:flex;align-items:center;gap:14px;transition:all 0.15s;" onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,0.07)'" onmouseout="this.style.boxShadow='0 2px 8px rgba(0,0,0,0.03)'">
-                    <button onclick="window.togglePreMeetingQuestionStatus(${q.id}, '${isCompleted ? 'pending' : 'completed'}')" ${canManage ? '' : 'disabled'} title="${canManage ? 'Nhấp để đổi trạng thái' : ''}" style="background:${isCompleted ? '#dcfce7' : '#ffedd5'};border:1.5px solid ${isCompleted ? '#86efac' : '#fed7aa'};color:${isCompleted ? '#15803d' : '#c2410c'};padding:5px 12px;border-radius:16px;font-weight:800;font-size:11px;cursor:${canManage ? 'pointer' : 'default'};white-space:nowrap;flex-shrink:0;">
-                        ${isCompleted ? '🟢 Đã trao đổi' : '🟠 Chưa trao đổi'}
-                    </button>
-
-                    <div style="flex:1;min-width:0;font-size:14px;font-weight:700;color:#1e293b;text-decoration:${isCompleted ? 'line-through' : 'none'};opacity:${isCompleted ? '0.65' : '1'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${(q.content || q.title).replace(/"/g, '&quot;')}">
+                <div style="background:white;border-radius:12px;padding:14px 18px;box-shadow:0 2px 8px rgba(0,0,0,0.03);border-left:4px solid ${isCompleted ? '#22c55e' : '#f97316'};display:flex;flex-direction:column;gap:10px;transition:all 0.15s;" onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,0.07)'" onmouseout="this.style.boxShadow='0 2px 8px rgba(0,0,0,0.03)'">
+                    <div style="font-size:14.5px;font-weight:600;color:#0f172a;line-height:1.5;text-decoration:${isCompleted ? 'line-through' : 'none'};opacity:${isCompleted ? '0.65' : '1'};word-break:break-word;white-space:pre-wrap;">
                         ${q.title}
                     </div>
-
-                    <div style="font-size:11px;color:#94a3b8;white-space:nowrap;text-align:right;flex-shrink:0;line-height:1.5;">
-                        <div>👤 ${q.creator_name || q.creator_username || ''}</div>
-                        <div>📅 ${dateStr}</div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding-top:8px;border-top:1px dashed #f1f5f9;">
+                        <div style="font-size:12px;color:#64748b;display:flex;align-items:center;gap:12px;">
+                            <span>👤 ${q.creator_name || q.creator_username || ''}</span>
+                            <span>📅 ${dateStr}</span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <button onclick="window.togglePreMeetingQuestionStatus(${q.id}, '${isCompleted ? 'pending' : 'completed'}')" ${canManage ? '' : 'disabled'} title="${canManage ? 'Nhấp để đổi trạng thái' : ''}" style="background:${isCompleted ? '#dcfce7' : '#ffedd5'};border:1.5px solid ${isCompleted ? '#86efac' : '#fed7aa'};color:${isCompleted ? '#15803d' : '#c2410c'};padding:5px 14px;border-radius:16px;font-weight:800;font-size:11.5px;cursor:${canManage ? 'pointer' : 'default'};white-space:nowrap;">
+                                ${isCompleted ? '🟢 Đã trao đổi' : '🟠 Chưa trao đổi'}
+                            </button>
+                            ${canEditThis ? `<button onclick="window.editPreMeetingQuestion(${q.id})" style="background:#f1f5f9;color:#475569;border:none;width:30px;height:30px;border-radius:8px;font-size:13px;cursor:pointer;" title="Chỉnh sửa">✏️</button>` : ''}
+                        </div>
                     </div>
-
-                    ${canEditThis ? `<button onclick="window.editPreMeetingQuestion(${q.id})" style="background:#f1f5f9;color:#475569;border:none;width:30px;height:30px;border-radius:8px;font-size:13px;cursor:pointer;flex-shrink:0;" title="Chỉnh sửa">✏️</button>` : ''}
                 </div>
             `;
         }).join('');
