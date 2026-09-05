@@ -197,19 +197,6 @@
             }
         } catch (e) {}
 
-        // Legacy scope fallback check
-        let legacyScope = 'muc1_xuong';
-        if (subId.startsWith('dt_vanphong') || subId.startsWith('dt_thietke') || subId.startsWith('dt_sale') || subId === 'muc2_vanphong') {
-            legacyScope = 'muc2_vanphong';
-        }
-        try {
-            const legacyRaw = localStorage.getItem('dtns_categories_' + legacyScope);
-            if (legacyRaw !== null) {
-                const parsed = JSON.parse(legacyRaw);
-                if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-            }
-        } catch (e) {}
-
         if (DEFAULT_CATEGORIES_PER_SUBTAB[subId]) {
             return DEFAULT_CATEGORIES_PER_SUBTAB[subId];
         }
@@ -1140,8 +1127,8 @@
             activeSubId = subtabs[0]?.id || 'dt_quanlyxuong';
         }
 
-        const categories = _dtnsGetCategories(scope);
-        const activeCat = activeCatFilter[scope] || 'all';
+        const categories = _dtnsGetCategories(activeSubId);
+        const activeCat = activeCatFilter[activeSubId] || 'all';
 
         // Fetch links for active subtab
         const allLinksInSub = _dtnsGetCustomSubtabLinks(activeSubId);
@@ -1432,7 +1419,7 @@
                 ">
                     <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                         <span style="font-size: 13.5px; font-weight: 900; color: #475569; margin-right: 4px;">🏢 Bộ Phận:</span>
-                        <button onclick="window._dtnsSelectCatFilter('${scope}', 'all')" style="
+                        <button onclick="window._dtnsSelectCatFilter('${activeSubId}', 'all')" style="
                             background: ${activeCat === 'all' ? '#4f46e5' : '#f1f5f9'};
                             color: ${activeCat === 'all' ? '#ffffff' : '#475569'};
                             border: none;
@@ -1448,7 +1435,7 @@
                         ${categories.map(cat => {
                             const count = allLinksInSub.filter(l => _dtnsGetLinkCategories(l).includes(cat)).length;
                             return `
-                                <button onclick="window._dtnsSelectCatFilter('${scope}', '${_dtnsEscapeHTML(cat)}')" style="
+                                <button onclick="window._dtnsSelectCatFilter('${activeSubId}', '${_dtnsEscapeHTML(cat)}')" style="
                                     background: ${activeCat === cat ? '#4f46e5' : '#ffffff'};
                                     color: ${activeCat === cat ? '#ffffff' : '#334155'};
                                     border: ${activeCat === cat ? 'none' : '1.5px solid #cbd5e1'};
@@ -1465,7 +1452,7 @@
                     </div>
 
                     ${canManage ? `
-                        <button onclick="window._dtnsOpenManageCatModal('${scope}')" style="
+                        <button onclick="window._dtnsOpenManageCatModal('${activeSubId}')" style="
                             background: #f8fafc;
                             color: #4f46e5;
                             border: 1.5px solid #c7d2fe;
