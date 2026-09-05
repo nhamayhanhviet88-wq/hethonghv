@@ -310,14 +310,14 @@
 
             const canManage = _currentUser && (_currentUser.role === 'giam_doc' || _currentUser.role === 'quan_ly_cap_cao' || _currentUser.username === 'trinh');
 
-            listEl.innerHTML = filtered.map(q => {
+            listEl.innerHTML = filtered.map((q, idx) => {
                 const isCompleted = q.status === 'completed';
                 const dateStr = q.created_at ? new Date(q.created_at).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }) : '';
                 const canEditThis = canManage || (_currentUser && q.creator_id === _currentUser.id);
 
                 return `
                     <div class="m-card ${isCompleted ? 'completed' : ''}">
-                        <div class="m-card-title">${(q.title || '').trim()}</div>
+                        <div class="m-card-title">${idx + 1} - ${(q.title || '').trim()}</div>
                         <div class="m-card-footer">
                             <div class="m-card-meta">
                                 <span>👤 ${q.creator_name || q.creator_username || ''}</span>
