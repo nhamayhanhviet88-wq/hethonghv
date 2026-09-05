@@ -42,7 +42,7 @@
                         <label style="font-size:13px;font-weight:700;color:#475569;">Trạng thái:</label>
                         <select id="chStatusFilter" style="padding:9px 14px;border:1.5px solid #cbd5e1;border-radius:10px;font-size:13px;font-weight:600;color:#1e293b;outline:none;cursor:pointer;background:white;">
                             <option value="all">Tất cả trạng thái</option>
-                            <option value="pending">🟠 Chưa trao đổi</option>
+                            <option value="pending" selected>🟠 Chưa trao đổi</option>
                             <option value="completed">🟢 Đã trao đổi</option>
                         </select>
                     </div>
@@ -107,6 +107,9 @@
 
         const form = document.getElementById('chForm');
         if (form) form.onsubmit = handleFormSubmit;
+
+        // Set default filter to 'pending' (Chưa trao đổi)
+        if (statusFilter) statusFilter.value = 'pending';
 
         // Load data
         await loadQuestions();

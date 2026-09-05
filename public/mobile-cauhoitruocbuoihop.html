@@ -153,8 +153,8 @@
                 <input type="text" id="mSearchInput" class="m-search-input" placeholder="Tìm câu hỏi, người tạo...">
             </div>
             <div class="m-pills">
-                <button class="m-pill active-all" onclick="setFilter('all', this)">Tất cả</button>
-                <button class="m-pill" onclick="setFilter('pending', this)">🟠 Chưa trao đổi</button>
+                <button class="m-pill" onclick="setFilter('all', this)">Tất cả</button>
+                <button class="m-pill active-pending" onclick="setFilter('pending', this)">🟠 Chưa trao đổi</button>
                 <button class="m-pill" onclick="setFilter('completed', this)">🟢 Đã trao đổi</button>
             </div>
         </div>
@@ -195,7 +195,7 @@
 
     <script>
         let _questions = [];
-        let _activeFilter = 'all';
+        let _activeFilter = 'pending';
         let _editingId = null;
         let _currentUser = null;
 
