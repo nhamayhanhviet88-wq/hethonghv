@@ -111,7 +111,6 @@
                                 localStorage.setItem(key, typeof store[key] === 'string' ? store[key] : JSON.stringify(store[key]));
                             }
                         });
-                        _dtnsRenderCurrentMainTab();
                         loaded = true;
                     }
                 }
@@ -119,6 +118,9 @@
         } catch (e) {
             console.warn('Sync load dtns_store error:', e);
         }
+
+        // Always render interface immediately
+        _dtnsRenderCurrentMainTab();
 
         if (!loaded && _dtnsCanManage()) {
             _dtnsSyncSaveToServer();
@@ -1577,6 +1579,7 @@
     window.renderDaotaonhansucaccapPage = function(container) {
         if (!container) return;
         container.innerHTML = `<div id="dtnsMainContainer"></div>`;
+        _dtnsRenderCurrentMainTab();
         _dtnsSyncLoadFromServer();
     };
 })();

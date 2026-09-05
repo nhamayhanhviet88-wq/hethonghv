@@ -2882,6 +2882,14 @@ async function handleRoute() {
                         window.renderDaotaonhansucaccapPage(content);
                     } else if (typeof renderDaotaonhansucaccapPage === 'function') {
                         renderDaotaonhansucaccapPage(content);
+                    } else {
+                        setTimeout(function() {
+                            if (typeof window.renderDaotaonhansucaccapPage === 'function') {
+                                window.renderDaotaonhansucaccapPage(content);
+                            } else if (typeof renderDaotaonhansucaccapPage === 'function') {
+                                renderDaotaonhansucaccapPage(content);
+                            }
+                        }, 150);
                     }
                     break;
                 case 'hopdongtuyendung': case 'hop-dong-tuyen-dung':
