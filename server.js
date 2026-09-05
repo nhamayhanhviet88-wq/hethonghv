@@ -307,8 +307,8 @@ async function start() {
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )`);
-        await db.exec('ALTER TABLE pre_meeting_questions ADD COLUMN IF NOT EXISTS is_important BOOLEAN DEFAULT FALSE');
     } catch(e) { /* exists */ }
+    try { await db.exec('ALTER TABLE pre_meeting_questions ADD COLUMN IF NOT EXISTS is_important BOOLEAN DEFAULT FALSE'); } catch(e) { /* exists */ }
 
     // Migration: Promotion Engine — token versioning + audit log
     try { await db.exec('ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER DEFAULT 0'); } catch(e) { /* exists */ }
