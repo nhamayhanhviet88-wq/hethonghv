@@ -109,6 +109,18 @@
         .m-btn-edit { background: #f1f5f9; color: #475569; }
         .m-btn-delete { background: #fef2f2; color: #ef4444; }
 
+        @keyframes blinkImportant {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.35; transform: scale(0.96); }
+        }
+        .m-badge-important {
+            display: inline-flex; align-items: center; gap: 3px;
+            background: #fef2f2; color: #dc2626; border: 1.5px solid #fca5a5;
+            padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 800;
+            animation: blinkImportant 1.2s infinite ease-in-out;
+            margin-right: 6px; vertical-align: middle;
+        }
+
         /* Bottom Sheet Modal */
         .m-modal-backdrop {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -185,7 +197,7 @@
                 </select>
                 <select id="mYearFilter" onchange="filterAndRender()" style="flex:1;padding:8px 10px;border-radius:10px;border:1px solid #cbd5e1;font-size:12px;font-weight:600;color:#334155;outline:none;background:white;">
                     <option value="all">📆 Tất cả năm</option>
-                    <option value="2026">Năm 2026</option>
+                    <option value="2026" selected>Năm 2026</option>
                     <option value="2025">Năm 2025</option>
                     <option value="2024">Năm 2024</option>
                 </select>
@@ -214,6 +226,13 @@
                 <div class="m-form-group" style="margin-bottom:14px;">
                     <label class="m-form-label">Nội dung câu hỏi <span style="color:#ef4444;">*</span></label>
                     <textarea id="mTitleInput" class="m-form-textarea" rows="5" style="min-height:130px;line-height:1.5;" placeholder="Nhập câu hỏi cần trao đổi..." required></textarea>
+                </div>
+                <div class="m-form-group" style="margin-bottom:14px;">
+                    <label class="m-form-label">Mức độ ưu tiên</label>
+                    <select id="mImportantInput" class="m-form-select">
+                        <option value="false" selected>🔹 Thường</option>
+                        <option value="true">🔥 Quan trọng (Ưu tiên đầu)</option>
+                    </select>
                 </div>
                 <button type="submit" id="mSubmitBtn" class="m-form-submit" onclick="handleFormSubmit(event)">💾 LƯU CÂU HỎI</button>
             </form>
@@ -330,6 +349,12 @@
                 return true;
             });
 
+            filtered.sort((a, b) => {
+                if (a.is_important && !b.is_important) return -1;
+                if (!a.is_important && b.is_important) return 1;
+                return 0;
+            });
+
             if (filtered.length === 0) {
                 listEl.innerHTML = `
                     <div style="background:white;border-radius:14px;padding:30px;text-align:center;color:#94a3b8;box-shadow:0 2px 8px rgba(0,0,0,0.03);">
@@ -348,8 +373,8 @@
                 const canEditThis = canManage || (_currentUser && q.creator_id === _currentUser.id);
 
                 return `
-                    <div class="m-card ${isCompleted ? 'completed' : ''}">
-                        <div class="m-card-title">${idx + 1} - ${(q.title || '').trim()}</div>
+                    <div class="m-card ${isCompleted ? 'completed' : ''}" style="${q.is_important ? 'border-left: 4px solid #ef4444; background: #fffdfd;' : ''}">
+                        <div class="m-card-title">${q.is_important ? `<span class="m-badge-important">🔥 QUAN TRỌNG</span>` : ''}${idx + 1} - ${(q.title || '').trim()}</div>
                         <div class="m-card-footer">
                             <div class="m-card-meta">
                                 <span>👤 ${q.creator_name || q.creator_username || ''}</span>
@@ -396,6 +421,7 @@
             document.getElementById('mModalTitle').textContent = _editingId ? 'CHỈNH SỬA CÂU HỎI' : 'TẠO CÂU HỎI MỚI';
             const titleInput = document.getElementById('mTitleInput');
             titleInput.value = question ? (question.title || '') : '';
+            document.getElementById('mImportantInput').value = question ? (question.is_important ? 'true' : 'false') : 'false';
             document.getElementById('mModal').style.display = 'flex';
             setTimeout(() => { titleInput.focus(); }, 150);
         }
@@ -431,6 +457,7 @@
             const title = document.getElementById('mTitleInput').value.trim();
             if (!title) return;
 
+            const is_important = document.getElementById('mImportantInput').value === 'true';
             const existing = _editingId ? _questions.find(q => q.id === _editingId) : null;
             const content = existing ? (existing.content || '') : '';
             const status = existing ? (existing.status || 'pending') : 'pending';
@@ -442,14 +469,14 @@
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
                         credentials: 'include',
-                        body: JSON.stringify({ title, content, status })
+                        body: JSON.stringify({ title, content, status, is_important })
                     });
                 } else {
                     res = await fetch('/api/pre-meeting-questions', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         credentials: 'include',
-                        body: JSON.stringify({ title, content, status })
+                        body: JSON.stringify({ title, content, status, is_important })
                     });
                 }
 

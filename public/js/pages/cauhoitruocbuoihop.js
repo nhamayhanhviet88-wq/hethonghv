@@ -64,7 +64,7 @@
                         </select>
                         <select id="chYearFilter" style="padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:10px;font-size:13px;font-weight:600;color:#1e293b;outline:none;cursor:pointer;background:white;">
                             <option value="all">📆 Tất cả năm</option>
-                            <option value="2026">Năm 2026</option>
+                            <option value="2026" selected>Năm 2026</option>
                             <option value="2025">Năm 2025</option>
                             <option value="2024">Năm 2024</option>
                         </select>
@@ -89,6 +89,13 @@
                             <label style="display:block;font-size:13px;font-weight:700;color:#334155;margin-bottom:6px;">Nội dung câu hỏi <span style="color:#ef4444;">*</span></label>
                             <textarea id="chTitleInput" rows="3" placeholder="Nhập câu hỏi hoặc vấn đề cần thảo luận..." style="width:100%;padding:10px 14px;border:1.5px solid #cbd5e1;border-radius:10px;font-size:14px;outline:none;box-sizing:border-box;" required></textarea>
                         </div>
+                        <div>
+                            <label style="display:block;font-size:13px;font-weight:700;color:#334155;margin-bottom:6px;">Mức độ ưu tiên</label>
+                            <select id="chImportantInput" style="width:100%;padding:10px 14px;border:1.5px solid #cbd5e1;border-radius:10px;font-size:14px;outline:none;box-sizing:border-box;background:white;">
+                                <option value="false" selected>🔹 Thường</option>
+                                <option value="true">🔥 Quan trọng (Ưu tiên đầu)</option>
+                            </select>
+                        </div>
 
                         <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:10px;">
                             <button type="button" id="chModalCancelBtn" style="padding:9px 18px;background:#f1f5f9;color:#475569;border:none;border-radius:8px;font-weight:700;cursor:pointer;">Hủy</button>
@@ -97,6 +104,19 @@
                     </form>
                 </div>
             </div>
+            <style>
+                @keyframes blinkImportant {
+                    0%, 100% { opacity: 1; transform: scale(1); }
+                    50% { opacity: 0.35; transform: scale(0.96); }
+                }
+                .ch-badge-important {
+                    display: inline-flex; align-items: center; gap: 3px;
+                    background: #fef2f2; color: #dc2626; border: 1.5px solid #fca5a5;
+                    padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 800;
+                    animation: blinkImportant 1.2s infinite ease-in-out;
+                    margin-right: 6px; vertical-align: middle;
+                }
+            </style>
         `;
 
         // Event listeners
@@ -124,8 +144,9 @@
         const form = document.getElementById('chForm');
         if (form) form.onsubmit = handleFormSubmit;
 
-        // Set default filter to 'pending' (Chưa trao đổi)
+        // Set default filter to 'pending' (Chưa trao đổi) and year to 2026
         if (statusFilter) statusFilter.value = 'pending';
+        if (yearFilter) yearFilter.value = '2026';
 
         // Load data
         await loadQuestions();
@@ -181,6 +202,12 @@
             return true;
         });
 
+        filtered.sort((a, b) => {
+            if (a.is_important && !b.is_important) return -1;
+            if (!a.is_important && b.is_important) return 1;
+            return 0;
+        });
+
         if (filtered.length === 0) {
             listEl.innerHTML = `
                 <div style="background:white;border-radius:14px;padding:40px;text-align:center;color:#94a3b8;box-shadow:0 4px 15px rgba(0,0,0,0.03);">
@@ -200,8 +227,8 @@
             const canEditThis = canManage || q.creator_id === user.id;
 
             return `
-                <div style="background:white;border-radius:12px;padding:14px 18px;box-shadow:0 2px 8px rgba(0,0,0,0.03);border-left:4px solid ${isCompleted ? '#22c55e' : '#f97316'};display:flex;flex-direction:column;gap:10px;transition:all 0.15s;" onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,0.07)'" onmouseout="this.style.boxShadow='0 2px 8px rgba(0,0,0,0.03)'">
-                    <div style="font-size:14.5px;font-weight:600;color:#0f172a;line-height:1.5;opacity:${isCompleted ? '0.85' : '1'};word-break:break-word;white-space:pre-wrap;">${idx + 1} - ${(q.title || '').trim()}</div>
+                <div style="background:white;border-radius:12px;padding:14px 18px;box-shadow:0 2px 8px rgba(0,0,0,0.03);border-left:4px solid ${q.is_important ? '#ef4444' : (isCompleted ? '#22c55e' : '#f97316')};${q.is_important ? 'background:#fffdfd;' : ''}display:flex;flex-direction:column;gap:10px;transition:all 0.15s;" onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,0.07)'" onmouseout="this.style.boxShadow='0 2px 8px rgba(0,0,0,0.03)'">
+                    <div style="font-size:14.5px;font-weight:600;color:#0f172a;line-height:1.5;opacity:${isCompleted ? '0.85' : '1'};word-break:break-word;white-space:pre-wrap;">${q.is_important ? `<span class="ch-badge-important">🔥 QUAN TRỌNG</span>` : ''}${idx + 1} - ${(q.title || '').trim()}</div>
                     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding-top:8px;border-top:1px dashed #f1f5f9;">
                         <div style="font-size:12px;color:#64748b;display:flex;align-items:center;gap:12px;">
                             <span>👤 ${q.creator_name || q.creator_username || ''}</span>
@@ -226,8 +253,7 @@
         const modal = document.getElementById('chModal');
         const modalTitle = document.getElementById('chModalTitle');
         const titleInput = document.getElementById('chTitleInput');
-        const contentInput = document.getElementById('chContentInput');
-        const statusInput = document.getElementById('chStatusInput');
+        const importantInput = document.getElementById('chImportantInput');
 
         if (!modal) return;
 
@@ -235,10 +261,12 @@
             _editingQuestionId = question.id;
             modalTitle.textContent = 'CHỈNH SỬA CÂU HỎI TRƯỚC BUỔI HỌP';
             titleInput.value = question.title || '';
+            if (importantInput) importantInput.value = question.is_important ? 'true' : 'false';
         } else {
             _editingQuestionId = null;
             modalTitle.textContent = 'TẠO CÂU HỎI TRƯỚC BUỔI HỌP';
             titleInput.value = '';
+            if (importantInput) importantInput.value = 'false';
         }
 
         modal.style.display = 'flex';
@@ -258,7 +286,8 @@
     async function handleFormSubmit(e) {
         e.preventDefault();
         const title = document.getElementById('chTitleInput')?.value.trim();
-        const existing = _editingQuestionId ? _questions.find(q => q.id === _editingQuestionId) : null;
+        const is_important = document.getElementById('chImportantInput')?.value === 'true';
+        const existing = _editingQuestionId ? _allQuestions.find(q => q.id === _editingQuestionId) : null;
         const content = existing ? (existing.content || '') : '';
         const status = existing ? (existing.status || 'pending') : 'pending';
 
@@ -274,16 +303,28 @@
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
-                    body: JSON.stringify({ title, content, status })
+                    body: JSON.stringify({ title, content, status, is_important })
                 });
             } else {
                 res = await fetch('/api/pre-meeting-questions', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
-                    body: JSON.stringify({ title, content, status })
+                    body: JSON.stringify({ title, content, status, is_important })
                 });
             }
+
+            const data = await res.json();
+            if (data && data.success) {
+                closeModal();
+                await loadQuestions();
+            } else {
+                alert('❌ Lỗi: ' + (data.error || 'Thao tác thất bại'));
+            }
+        } catch (err) {
+            alert('❌ Lỗi kết nối: ' + err.message);
+        }
+    }
 
             const data = await res.json();
             if (data && data.success) {

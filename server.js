@@ -303,9 +303,11 @@ async function start() {
             content TEXT,
             creator_id INTEGER REFERENCES users(id),
             status VARCHAR(20) DEFAULT 'pending',
+            is_important BOOLEAN DEFAULT FALSE,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )`);
+        await db.exec('ALTER TABLE pre_meeting_questions ADD COLUMN IF NOT EXISTS is_important BOOLEAN DEFAULT FALSE');
     } catch(e) { /* exists */ }
 
     // Migration: Promotion Engine — token versioning + audit log

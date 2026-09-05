@@ -7,7 +7,7 @@ async function preMeetingQuestionsRoutes(fastify, options) {
         try {
             const { status, search } = request.query || {};
             let query = `
-                SELECT q.id, q.title, q.content, q.status, q.creator_id, q.created_at, q.updated_at,
+                SELECT q.id, q.title, q.content, q.status, q.is_important, q.creator_id, q.created_at, q.updated_at,
                        u.full_name AS creator_name, u.username AS creator_username, u.role AS creator_role,
                        d.name AS creator_department
                 FROM pre_meeting_questions q
@@ -27,7 +27,7 @@ async function preMeetingQuestionsRoutes(fastify, options) {
                 query += ` AND (q.title ILIKE $${params.length} OR q.content ILIKE $${params.length} OR u.full_name ILIKE $${params.length})`;
             }
 
-            query += ` ORDER BY q.created_at DESC`;
+            query += ` ORDER BY q.is_important DESC, q.created_at DESC`;
 
             const questions = await db.all(query, params);
             return { success: true, questions: questions || [] };
@@ -40,18 +40,19 @@ async function preMeetingQuestionsRoutes(fastify, options) {
     // POST /api/pre-meeting-questions — Tạo mới câu hỏi trước buổi họp
     fastify.post('/api/pre-meeting-questions', { preHandler: [authenticate] }, async (request, reply) => {
         try {
-            const { title, content, status } = request.body || {};
+            const { title, content, status, is_important } = request.body || {};
             if (!title || !title.trim()) {
                 return reply.code(400).send({ error: 'Nội dung câu hỏi không được để trống' });
             }
 
             const creatorId = request.user.id;
             const initStatus = status === 'completed' ? 'completed' : 'pending';
+            const isImp = Boolean(is_important);
 
             const result = await db.run(
-                `INSERT INTO pre_meeting_questions (title, content, status, creator_id, created_at, updated_at)
-                 VALUES ($1, $2, $3, $4, NOW(), NOW()) RETURNING id`,
-                [title.trim(), (content || '').trim(), initStatus, creatorId]
+                `INSERT INTO pre_meeting_questions (title, content, status, is_important, creator_id, created_at, updated_at)
+                 VALUES ($1, $2, $3, $4, $5, NOW(), NOW()) RETURNING id`,
+                [title.trim(), (content || '').trim(), initStatus, isImp, creatorId]
             );
 
             return { success: true, id: result?.id || result?.insertId, message: 'Đã thêm câu hỏi mới thành công' };
@@ -92,7 +93,7 @@ async function preMeetingQuestionsRoutes(fastify, options) {
     fastify.put('/api/pre-meeting-questions/:id', { preHandler: [authenticate] }, async (request, reply) => {
         try {
             const { id } = request.params;
-            const { title, content, status } = request.body || {};
+            const { title, content, status, is_important } = request.body || {};
 
             if (!title || !title.trim()) {
                 return reply.code(400).send({ error: 'Nội dung câu hỏi không được để trống' });
@@ -104,10 +105,11 @@ async function preMeetingQuestionsRoutes(fastify, options) {
             }
 
             const newStatus = status === 'completed' ? 'completed' : 'pending';
+            const isImp = is_important !== undefined ? Boolean(is_important) : false;
 
             await db.run(
-                'UPDATE pre_meeting_questions SET title = $1, content = $2, status = $3, updated_at = NOW() WHERE id = $4',
-                [title.trim(), (content || '').trim(), newStatus, id]
+                'UPDATE pre_meeting_questions SET title = $1, content = $2, status = $3, is_important = $4, updated_at = NOW() WHERE id = $5',
+                [title.trim(), (content || '').trim(), newStatus, isImp, id]
             );
 
             return { success: true, message: 'Đã cập nhật câu hỏi' };
