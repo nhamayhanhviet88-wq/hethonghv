@@ -177,7 +177,7 @@
             return `
                 <div style="background:white;border-radius:10px;padding:12px 16px;box-shadow:0 2px 8px rgba(0,0,0,0.03);border-left:4px solid ${isCompleted ? '#22c55e' : '#f97316'};display:flex;align-items:center;gap:14px;transition:all 0.15s;" onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,0.07)'" onmouseout="this.style.boxShadow='0 2px 8px rgba(0,0,0,0.03)'">
                     <button onclick="window.togglePreMeetingQuestionStatus(${q.id}, '${isCompleted ? 'pending' : 'completed'}')" ${canManage ? '' : 'disabled'} title="${canManage ? 'Nhấp để đổi trạng thái' : ''}" style="background:${isCompleted ? '#dcfce7' : '#ffedd5'};border:1.5px solid ${isCompleted ? '#86efac' : '#fed7aa'};color:${isCompleted ? '#15803d' : '#c2410c'};padding:5px 12px;border-radius:16px;font-weight:800;font-size:11px;cursor:${canManage ? 'pointer' : 'default'};white-space:nowrap;flex-shrink:0;">
-                        ${isCompleted ? '🟢 Đã' : '🟠 Chưa'}
+                        ${isCompleted ? '🟢 Đã trao đổi' : '🟠 Chưa trao đổi'}
                     </button>
 
                     <div style="flex:1;min-width:0;font-size:14px;font-weight:700;color:#1e293b;text-decoration:${isCompleted ? 'line-through' : 'none'};opacity:${isCompleted ? '0.65' : '1'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${(q.content || q.title).replace(/"/g, '&quot;')}">

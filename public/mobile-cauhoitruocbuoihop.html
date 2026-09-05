@@ -299,7 +299,7 @@
                         </div>
                         <div class="m-card-actions">
                             <button class="m-status-toggle ${isCompleted ? 'is-completed' : ''}" onclick="toggleStatus(${q.id}, '${isCompleted ? 'pending' : 'completed'}')" ${canManage ? '' : 'disabled'}>
-                                ${isCompleted ? '🟢 Đã' : '🟠 Chưa'}
+                                ${isCompleted ? '🟢 Đã trao đổi' : '🟠 Chưa trao đổi'}
                             </button>
                             ${canEditThis ? `<button class="m-icon-btn m-btn-edit" onclick="editQuestion(${q.id})">✏️</button>` : ''}
                         </div>
