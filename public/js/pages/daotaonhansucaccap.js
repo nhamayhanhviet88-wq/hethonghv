@@ -177,18 +177,44 @@
     }
 
     // Category / Chức vụ Management
-    const DEFAULT_CATEGORIES_MUC1 = ['Chung', 'Quản Lý Xưởng', 'Tổ Trưởng', 'Bộ Phận Cắt', 'Bộ Phận In', 'Bộ Phận Ép', 'Bộ Phận May', 'Hoàn Thiện QC'];
-    const DEFAULT_CATEGORIES_MUC2 = ['Chung', 'Quản Lý Văn Phòng', 'Thiết Kế', 'Sale / Kinh Doanh', 'Marketing', 'Hành Chính Nhân Sự', 'Kế Toán'];
+    // Category / Chức vụ Management per Sub-tab (Image 3)
+    const DEFAULT_CATEGORIES_PER_SUBTAB = {
+        'dt_quanlyxuong': ['Chung', 'Quản Lý Xưởng', 'Tổ Trưởng'],
+        'dt_bophancat': ['Chung', 'Tổ Trưởng Cắt', 'Thợ Cắt Main', 'Phụ Cắt'],
+        'dt_bophanin': ['Chung', 'Tổ Trưởng In', 'Kỹ Thuật In', 'Đóng Gói In'],
+        'dt_vanphong': ['Chung', 'Quản Lý Văn Phòng', 'Hành Chính Nhân Sự'],
+        'dt_thietke': ['Chung', 'Trưởng Nhóm Thiết Kế', 'Thiết Kế 2D/3D'],
+        'dt_sale_kdoanh': ['Chung', 'Trưởng Phòng Sale', 'Chuyên Viên Sales / Telesale', 'Leader Sales']
+    };
 
-    function _dtnsGetCategories(scope) {
+    function _dtnsGetCategories(subId) {
+        if (!subId) subId = 'dt_quanlyxuong';
         try {
-            const raw = localStorage.getItem('dtns_categories_' + scope);
+            const raw = localStorage.getItem('dtns_categories_' + subId);
             if (raw !== null) {
                 const parsed = JSON.parse(raw);
                 if (Array.isArray(parsed) && parsed.length > 0) return parsed;
             }
         } catch (e) {}
-        return scope === 'muc1_xuong' ? DEFAULT_CATEGORIES_MUC1 : DEFAULT_CATEGORIES_MUC2;
+
+        // Legacy scope fallback check
+        let legacyScope = 'muc1_xuong';
+        if (subId.startsWith('dt_vanphong') || subId.startsWith('dt_thietke') || subId.startsWith('dt_sale') || subId === 'muc2_vanphong') {
+            legacyScope = 'muc2_vanphong';
+        }
+        try {
+            const legacyRaw = localStorage.getItem('dtns_categories_' + legacyScope);
+            if (legacyRaw !== null) {
+                const parsed = JSON.parse(legacyRaw);
+                if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+            }
+        } catch (e) {}
+
+        if (DEFAULT_CATEGORIES_PER_SUBTAB[subId]) {
+            return DEFAULT_CATEGORIES_PER_SUBTAB[subId];
+        }
+
+        return ['Chung'];
     }
 
     function _dtnsGetCustomSubtabLinks(subId) {
@@ -209,8 +235,8 @@
         _dtnsSyncSaveToServer();
     }
 
-    // Category & Subtab Filter State
-    let activeCatFilter = { muc1_xuong: 'all', muc2_vanphong: 'all' };
+    // Category & Subtab Filter State per Subtab
+    let activeCatFilter = {};
 
     function _dtnsGetLinkCategories(link) {
         if (!link) return ['Chung'];
@@ -224,38 +250,74 @@
         _dtnsSyncSaveToServer();
     }
 
-    function _dtnsSaveCategories(scope, cats) {
-        localStorage.setItem('dtns_categories_' + scope, JSON.stringify(cats));
+    function _dtnsSaveCategories(subId, cats) {
+        if (!subId) return;
+        localStorage.setItem('dtns_categories_' + subId, JSON.stringify(cats));
         _dtnsSyncSaveToServer();
     }
 
-    window._dtnsSelectCatFilter = function(scope, cat) {
-        activeCatFilter[scope] = cat;
+    window._dtnsSelectCatFilter = function(subId, cat) {
+        activeCatFilter[subId] = cat;
         _dtnsRenderCurrentMainTab();
     };
 
-    // Category Modal Handlers
+    // Category Modal Handlers per Sub-tab
+    let currentManageCatSubId = 'dt_quanlyxuong';
     let editingCatIndex = -1;
 
-    window._dtnsOpenManageCatModal = function(scope = null) {
+    window._dtnsOpenManageCatModal = function(targetSubId = null) {
         if (!_dtnsCanManage()) {
             alert('Chỉ Giám Đốc và Quản Lý mới có quyền cài đặt bộ phận / chức vụ!');
             return;
         }
-        if (!scope) scope = currentMainTab;
 
-        const modal = _dtnsEnsureCategoryModalInDOM();
-        let scopeTitle = 'MỤC 1: BỘ PHẬN XƯỞNG';
-        if (scope === 'muc2_vanphong') scopeTitle = 'MỤC 2: BỘ PHẬN VĂN PHÒNG';
+        const scope = currentMainTab;
+        const subtabs = _dtnsGetSubtabs(scope);
 
-        document.getElementById('dtnsCatModalTitle').innerText = `⚙️ CÀI ĐẶT BỘ PHẬN & CHỨC VỤ (${scopeTitle})`;
-        document.getElementById('dtnsCatFormScope').value = scope;
-        document.getElementById('dtnsCatFormName').value = '';
+        if (!targetSubId || typeof targetSubId !== 'string') {
+            targetSubId = scope === 'muc1_xuong' ? currentSubTab1 : currentSubTab2;
+        }
+
+        if (!subtabs.some(s => s.id === targetSubId)) {
+            targetSubId = subtabs[0]?.id || 'dt_quanlyxuong';
+        }
+
+        currentManageCatSubId = targetSubId;
         editingCatIndex = -1;
 
-        _dtnsRenderCatListInModal(scope);
+        const modal = _dtnsEnsureCategoryModalInDOM();
+
+        // Populate Subtab Selector
+        const selectEl = document.getElementById('dtnsCatModalSubtabSelect');
+        if (selectEl) {
+            selectEl.innerHTML = subtabs.map(s => `<option value="${s.id}">${s.icon || '📁'} ${s.title}</option>`).join('');
+            selectEl.value = currentManageCatSubId;
+        }
+
+        _dtnsUpdateCatModalTitle(currentManageCatSubId);
+        const nameInput = document.getElementById('dtnsCatFormName');
+        if (nameInput) nameInput.value = '';
+
+        _dtnsRenderCatListInModal(currentManageCatSubId);
         modal.style.display = 'flex';
     };
+
+    window._dtnsOnCatModalSubtabSelect = function(subId) {
+        currentManageCatSubId = subId;
+        editingCatIndex = -1;
+        _dtnsUpdateCatModalTitle(subId);
+        _dtnsRenderCatListInModal(subId);
+    };
+
+    function _dtnsUpdateCatModalTitle(subId) {
+        const titleEl = document.getElementById('dtnsCatModalTitle');
+        if (!titleEl) return;
+        const scope = currentMainTab;
+        const subtabs = _dtnsGetSubtabs(scope);
+        const sub = subtabs.find(s => s.id === subId);
+        const subTitle = sub ? sub.title : subId;
+        titleEl.innerText = `⚙️ CÀI ĐẶT BỘ PHẬN & CHỨC VỤ (${subTitle})`;
+    }
 
     window._dtnsCloseCatModal = function() {
         editingCatIndex = -1;
@@ -263,13 +325,13 @@
         if (modal) modal.style.display = 'none';
     };
 
-    function _dtnsRenderCatListInModal(scope) {
+    function _dtnsRenderCatListInModal(subId = currentManageCatSubId) {
         const container = document.getElementById('dtnsCatListContainer');
         if (!container) return;
 
-        const cats = _dtnsGetCategories(scope);
+        const cats = _dtnsGetCategories(subId);
         if (cats.length === 0) {
-            container.innerHTML = `<div style="text-align:center; padding:16px; color:#94a3b8; font-weight:600;">Chưa có bộ phận nào</div>`;
+            container.innerHTML = `<div style="text-align:center; padding:16px; color:#94a3b8; font-weight:600;">Chưa có bộ phận nào trong mục này</div>`;
             return;
         }
 
@@ -279,11 +341,11 @@
                     <div style="display:flex; justify-content:space-between; align-items:center; background:#fffbeb; padding:10px 14px; border-radius:14px; border:2px solid #f59e0b; box-shadow:0 4px 12px rgba(245, 158, 11, 0.15); gap:10px;">
                         <div style="display:flex; align-items:center; gap:8px; flex:1;">
                             <span style="font-size:16px;">📌</span>
-                            <input type="text" id="dtnsEditCatInput_${idx}" value="${_dtnsEscapeHTML(cat)}" style="flex:1; padding:8px 12px; border-radius:10px; border:1.5px solid #f59e0b; font-size:14px; font-weight:800; color:#0f172a; outline:none; background:#ffffff;" onkeypress="if(event.key==='Enter') window._dtnsSaveCategoryEditFromModal('${scope}', ${idx})">
+                            <input type="text" id="dtnsEditCatInput_${idx}" value="${_dtnsEscapeHTML(cat)}" style="flex:1; padding:8px 12px; border-radius:10px; border:1.5px solid #f59e0b; font-size:14px; font-weight:800; color:#0f172a; outline:none; background:#ffffff;" onkeypress="if(event.key==='Enter') window._dtnsSaveCategoryEditFromModal('${subId}', ${idx})">
                         </div>
                         <div style="display:flex; gap:6px;">
-                            <button onclick="window._dtnsSaveCategoryEditFromModal('${scope}', ${idx})" title="Lưu tên mới" style="background:#22c55e; color:#ffffff; border:none; border-radius:10px; padding:7px 14px; font-size:12.5px; font-weight:900; cursor:pointer; box-shadow:0 2px 6px rgba(34, 197, 94, 0.3);">💾 Lưu</button>
-                            <button onclick="window._dtnsCancelCategoryEditFromModal('${scope}')" title="Hủy bỏ" style="background:#e2e8f0; color:#475569; border:none; border-radius:10px; padding:7px 12px; font-size:12.5px; font-weight:800; cursor:pointer;">✕ Hủy</button>
+                            <button onclick="window._dtnsSaveCategoryEditFromModal('${subId}', ${idx})" title="Lưu tên mới" style="background:#22c55e; color:#ffffff; border:none; border-radius:10px; padding:7px 14px; font-size:12.5px; font-weight:900; cursor:pointer; box-shadow:0 2px 6px rgba(34, 197, 94, 0.3);">💾 Lưu</button>
+                            <button onclick="window._dtnsCancelCategoryEditFromModal('${subId}')" title="Hủy bỏ" style="background:#e2e8f0; color:#475569; border:none; border-radius:10px; padding:7px 12px; font-size:12.5px; font-weight:800; cursor:pointer;">✕ Hủy</button>
                         </div>
                     </div>
                 `;
@@ -296,8 +358,8 @@
                         <span style="font-size:14.5px; font-weight:800; color:#0f172a;">${_dtnsEscapeHTML(cat)}</span>
                     </div>
                     <div style="display:flex; gap:8px;">
-                        <button onclick="window._dtnsStartCategoryEditFromModal('${scope}', ${idx})" title="Chỉnh sửa tên bộ phận" style="background:#fef3c7; color:#d97706; border:1px solid #fde047; border-radius:10px; padding:6px 14px; font-size:12.5px; font-weight:800; cursor:pointer;">✏️ Sửa Tên</button>
-                        <button onclick="window._dtnsDeleteCategoryFromModal('${scope}', ${idx})" title="Xóa bộ phận" style="background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; border-radius:10px; padding:6px 14px; font-size:12.5px; font-weight:800; cursor:pointer;">🗑️ Xóa</button>
+                        <button onclick="window._dtnsStartCategoryEditFromModal('${subId}', ${idx})" title="Chỉnh sửa tên bộ phận" style="background:#fef3c7; color:#d97706; border:1px solid #fde047; border-radius:10px; padding:6px 14px; font-size:12.5px; font-weight:800; cursor:pointer;">✏️ Sửa Tên</button>
+                        <button onclick="window._dtnsDeleteCategoryFromModal('${subId}', ${idx})" title="Xóa bộ phận" style="background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; border-radius:10px; padding:6px 14px; font-size:12.5px; font-weight:800; cursor:pointer;">🗑️ Xóa</button>
                     </div>
                 </div>
             `;
@@ -306,7 +368,7 @@
 
     window._dtnsAddCategoryFromModal = function() {
         const input = document.getElementById('dtnsCatFormName');
-        const scope = document.getElementById('dtnsCatFormScope')?.value || currentMainTab;
+        const subId = currentManageCatSubId;
         if (!input) return;
         const name = input.value.trim();
         if (!name) {
@@ -314,39 +376,39 @@
             return;
         }
 
-        let cats = _dtnsGetCategories(scope);
+        let cats = _dtnsGetCategories(subId);
         if (cats.includes(name)) {
-            alert('Bộ phận / chức vụ này đã tồn tại!');
+            alert('Bộ phận / chức vụ này đã tồn tại trong mục này!');
             return;
         }
 
         cats.push(name);
-        _dtnsSaveCategories(scope, cats);
+        _dtnsSaveCategories(subId, cats);
         input.value = '';
-        _dtnsRenderCatListInModal(scope);
+        _dtnsRenderCatListInModal(subId);
         _dtnsRenderCurrentMainTab();
         _dtnsShowToast(`✅ Đã thêm bộ phận/chức vụ "${name}"!`);
     };
 
-    window._dtnsStartCategoryEditFromModal = function(scope, index) {
+    window._dtnsStartCategoryEditFromModal = function(subId, index) {
         editingCatIndex = index;
-        _dtnsRenderCatListInModal(scope);
+        _dtnsRenderCatListInModal(subId);
         setTimeout(() => {
             const input = document.getElementById(`dtnsEditCatInput_${index}`);
             if (input) { input.focus(); input.select(); }
         }, 50);
     };
 
-    window._dtnsCancelCategoryEditFromModal = function(scope) {
+    window._dtnsCancelCategoryEditFromModal = function(subId) {
         editingCatIndex = -1;
-        _dtnsRenderCatListInModal(scope);
+        _dtnsRenderCatListInModal(subId);
     };
 
-    window._dtnsSaveCategoryEditFromModal = function(scope, index) {
+    window._dtnsSaveCategoryEditFromModal = function(subId, index) {
         const input = document.getElementById(`dtnsEditCatInput_${index}`);
         if (!input) return;
         const newName = input.value.trim();
-        let cats = _dtnsGetCategories(scope);
+        let cats = _dtnsGetCategories(subId);
         const oldName = cats[index];
 
         if (!newName) {
@@ -355,38 +417,38 @@
         }
 
         if (newName !== oldName && cats.includes(newName)) {
-            alert('Tên này đã tồn tại!');
+            alert('Tên này đã tồn tại trong mục này!');
             return;
         }
 
         cats[index] = newName;
-        _dtnsSaveCategories(scope, cats);
+        _dtnsSaveCategories(subId, cats);
 
-        if (activeCatFilter[scope] === oldName) {
-            activeCatFilter[scope] = newName;
+        if (activeCatFilter[subId] === oldName) {
+            activeCatFilter[subId] = newName;
         }
 
         editingCatIndex = -1;
-        _dtnsRenderCatListInModal(scope);
+        _dtnsRenderCatListInModal(subId);
         _dtnsRenderCurrentMainTab();
         _dtnsShowToast('💾 Đã cập nhật bộ phận / chức vụ!');
     };
 
-    window._dtnsDeleteCategoryFromModal = function(scope, index) {
-        let cats = _dtnsGetCategories(scope);
+    window._dtnsDeleteCategoryFromModal = function(subId, index) {
+        let cats = _dtnsGetCategories(subId);
         const catName = cats[index];
         if (!catName) return;
 
         if (!confirm(`Bạn có chắc muốn xóa bộ phận / chức vụ "${catName}" không?`)) return;
 
         cats = cats.filter((_, i) => i !== index);
-        _dtnsSaveCategories(scope, cats);
+        _dtnsSaveCategories(subId, cats);
 
-        if (activeCatFilter[scope] === catName) {
-            activeCatFilter[scope] = 'all';
+        if (activeCatFilter[subId] === catName) {
+            activeCatFilter[subId] = 'all';
         }
 
-        _dtnsRenderCatListInModal(scope);
+        _dtnsRenderCatListInModal(subId);
         _dtnsRenderCurrentMainTab();
         _dtnsShowToast(`🗑️ Đã xóa bộ phận "${catName}"!`);
     };
@@ -399,17 +461,21 @@
             modal.id = 'dtnsCategoryModal';
             modal.style.cssText = 'display:none; position:fixed; inset:0; background:rgba(15,23,42,0.65); backdrop-filter:blur(4px); z-index:99999; align-items:center; justify-content:center; padding:20px;';
             modal.innerHTML = `
-                <div class="dtns-modal-card" style="max-height:88vh; display:flex; flex-direction:column; width:100%; max-width:600px; border-radius:24px; overflow:hidden; background:#ffffff; box-shadow:0 25px 50px -12px rgba(79,70,229,0.35);">
+                <div class="dtns-modal-card" style="max-height:88vh; display:flex; flex-direction:column; width:100%; max-width:620px; border-radius:24px; overflow:hidden; background:#ffffff; box-shadow:0 25px 50px -12px rgba(79,70,229,0.35);">
                     <div style="flex-shrink:0; padding:18px 24px; background:linear-gradient(135deg, #4f46e5, #7c3aed); color:#ffffff; display:flex; justify-content:space-between; align-items:center;">
                         <h3 id="dtnsCatModalTitle" style="margin:0; font-size:17.5px; font-weight:900;">⚙️ CÀI ĐẶT BỘ PHẬN & CHỨC VỤ</h3>
                         <button onclick="window._dtnsCloseCatModal()" style="background:rgba(255,255,255,0.2); border:none; color:#ffffff; width:30px; height:30px; border-radius:50%; cursor:pointer; font-size:16px; font-weight:bold;">✕</button>
                     </div>
 
                     <div style="flex:1; overflow-y:auto; padding:20px 24px; display:flex; flex-direction:column; gap:16px; background:#f8fafc;">
-                        <input type="hidden" id="dtnsCatFormScope" value="">
+                        <!-- Select Target Sub-tab -->
+                        <div style="background:#ffffff; border:1.5px solid #c7d2fe; border-radius:18px; padding:16px; box-shadow:0 4px 14px rgba(79,70,229,0.05);">
+                            <label style="font-size:13.5px; font-weight:900; color:#4338ca; display:block; margin-bottom:8px;">📁 Chọn Mục Đào Tạo (Sub-tab) Cần Cài Đặt Bộ Phận / Chức Vụ:</label>
+                            <select id="dtnsCatModalSubtabSelect" onchange="window._dtnsOnCatModalSubtabSelect(this.value)" style="width:100%; border:2px solid #c7d2fe; border-radius:12px; padding:10px 14px; font-size:14px; font-weight:800; color:#0f172a; outline:none; background:#ffffff;"></select>
+                        </div>
                         
                         <div style="background:#ffffff; border:1.5px solid #c7d2fe; border-radius:18px; padding:16px; box-shadow:0 4px 14px rgba(79,70,229,0.05);">
-                            <label style="font-size:13.5px; font-weight:900; color:#4338ca; display:block; margin-bottom:8px;">➕ Tạo Bộ Phận / Chức Vụ Mới:</label>
+                            <label style="font-size:13.5px; font-weight:900; color:#4338ca; display:block; margin-bottom:8px;">➕ Tạo Bộ Phận / Chức Vụ Mới Cho Mục Này:</label>
                             <div style="display:flex; gap:10px;">
                                 <input type="text" id="dtnsCatFormName" placeholder="Nhập tên bộ phận / chức vụ mới..." style="flex:1; border:2px solid #c7d2fe; border-radius:12px; padding:10px 14px; font-size:13.5px; font-weight:700; color:#0f172a; outline:none;" onkeypress="if(event.key==='Enter') window._dtnsAddCategoryFromModal()">
                                 <button onclick="window._dtnsAddCategoryFromModal()" style="background:linear-gradient(135deg, #4f46e5, #6366f1); color:#ffffff; border:none; border-radius:12px; padding:10px 18px; font-size:13.5px; font-weight:900; cursor:pointer; box-shadow:0 4px 12px rgba(79,70,229,0.3); white-space:nowrap;">➕ Thêm Mới</button>
@@ -417,7 +483,7 @@
                         </div>
 
                         <div>
-                            <div style="font-size:13.5px; font-weight:900; color:#334155; margin-bottom:10px;">📌 Danh Sách Hiện Tại:</div>
+                            <div style="font-size:13.5px; font-weight:900; color:#334155; margin-bottom:10px;">📌 Danh Sách Bộ Phận / Chức Vụ Hiện Tại:</div>
                             <div id="dtnsCatListContainer" style="display:flex; flex-direction:column; gap:10px;"></div>
                         </div>
                     </div>
@@ -679,17 +745,20 @@
             if (defaultSubId) subSelect.value = defaultSubId;
         }
 
-        // Render categories checkboxes matching current main section
-        const catContainer = document.getElementById('dtnsCatCheckboxesContainer');
-        const cats = _dtnsGetCategories(scope);
-        if (catContainer) {
+        window._dtnsOnLinkFormSubtabChange = function(targetSubId) {
+            const catContainer = document.getElementById('dtnsCatCheckboxesContainer');
+            if (!catContainer) return;
+            const cats = _dtnsGetCategories(targetSubId);
             catContainer.innerHTML = cats.map((cat, idx) => `
                 <label style="display:inline-flex; align-items:center; gap:6px; background:#ffffff; border:1.5px solid #cbd5e1; border-radius:10px; padding:6px 12px; font-size:13px; font-weight:700; color:#334155; cursor:pointer; user-select:none;">
                     <input type="checkbox" name="dtnsCategoryCheck" value="${_dtnsEscapeHTML(cat)}" ${idx === 0 ? 'checked' : ''} style="width:16px; height:16px; accent-color:#4f46e5;">
-                    📌 ${cat}
+                    📌 ${_dtnsEscapeHTML(cat)}
                 </label>
             `).join('');
-        }
+        };
+
+        const activeSubIdForModal = subSelect ? subSelect.value : (defaultSubId || subtabs[0]?.id);
+        window._dtnsOnLinkFormSubtabChange(activeSubIdForModal);
 
         const titleInput = document.getElementById('dtnsFormTitle');
         const descInput = document.getElementById('dtnsFormDesc');
@@ -883,7 +952,7 @@
                             <div style="display:flex; flex-direction:column; gap:18px;">
                                 <div>
                                     <label style="font-size:13.5px; font-weight:900; color:#1e293b; display:block; margin-bottom:6px;">📁 Danh Mục Quản Trị (* BẮT BUỘC):</label>
-                                    <select id="dtnsLinkFormSubtab" style="width:100%; border:2px solid #c7d2fe; border-radius:12px; padding:11px 14px; font-size:14px; font-weight:700; color:#0f172a; outline:none; background:#ffffff;"></select>
+                                    <select id="dtnsLinkFormSubtab" onchange="window._dtnsOnLinkFormSubtabChange(this.value)" style="width:100%; border:2px solid #c7d2fe; border-radius:12px; padding:11px 14px; font-size:14px; font-weight:700; color:#0f172a; outline:none; background:#ffffff;"></select>
                                 </div>
 
                                 <div>
