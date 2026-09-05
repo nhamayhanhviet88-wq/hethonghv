@@ -220,6 +220,7 @@ const MENU_CONFIG = [
     // ========== HÀNH CHÍNH & NHÂN SỰ ==========
     { id: 'quan-tri-nhan-su', label: 'Quản Trị Nhân Sự', icon: '👔', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'QUẢN TRỊ NHÂN SỰ', href: '/quantrinhansuhv', permKey: 'quan_tri_nhan_su' },
     { id: 'hop-dong-tuyen-dung', label: 'Hợp Đồng & Tuyển Dụng NV', icon: '📝', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'QUẢN TRỊ NHÂN SỰ', href: '/hopdongtuyendung', permKey: 'hop_dong_tuyen_dung' },
+    { id: 'dao-tao-nhan-su-cac-cap', label: 'Đào Tạo Nhân Sự Các Cấp', icon: '🎓', roles: ['giam_doc','quan_ly_cap_cao','quan_ly','truong_phong','nhan_vien','thu_viec','part_time'], section: 'ĐÀO TẠO NHÂN SỰ', href: '/daotaonhansucaccap', permKey: 'dao_tao_nhan_su_cac_cap' },
 
 
     // ========== BỘ PHẬN VĂN PHÒNG ==========
@@ -617,6 +618,8 @@ const _PAGE_SCRIPT_MAP = {
     'xu-ly-don-loi': '/js/pages/xulydonloihv.js?v=' + Date.now(),
     'quantrinhansuhv': '/js/pages/quantrinhansuhv.js?v=' + Date.now(),
     'quan-tri-nhan-su': '/js/pages/quantrinhansuhv.js?v=' + Date.now(),
+    'daotaonhansucaccap': '/js/pages/daotaonhansucaccap.js?v=' + Date.now(),
+    'dao-tao-nhan-su-cac-cap': '/js/pages/daotaonhansucaccap.js?v=' + Date.now(),
     'hopdongtuyendung': '/js/pages/hopdongtuyendung.js?v=' + Date.now(),
     'hop-dong-tuyen-dung': '/js/pages/hopdongtuyendung.js?v=20260904_v1',
     'hopdongkhachhang': '/js/pages/hopdongkhachhang.js?v=20260904_v1',
@@ -1755,7 +1758,7 @@ var _sidebarSectionKeys = [];
 var PARENT_SECTIONS = [
     { name: 'KẾT QUẢ & VINH DANH', sections: ['BÁO CÁO', 'TỔNG QUAN', 'CUỘC HỌP CÔNG TY', 'BXH & GIẢI THƯỞNG'] },
     { name: 'NỘI QUY & QUY TẮC LÀM VIỆC', sections: ['NỘI QUY & TƯ LIỆU NỘI BỘ', 'QUY TẮC & CHÍNH SÁCH KH'] },
-    { name: 'HÀNH CHÍNH & NHÂN SỰ', sections: ['QUẢN TRỊ NHÂN SỰ'] },
+    { name: 'HÀNH CHÍNH & NHÂN SỰ', sections: ['QUẢN TRỊ NHÂN SỰ', 'ĐÀO TẠO NHÂN SỰ'] },
     { name: 'BỘ PHẬN VĂN PHÒNG', sections: ['VĂN PHÒNG QUẢN LÝ', 'BỘ PHẬN THIẾT KẾ'] },
     { name: 'BỘ PHẬN XƯỞNG SX', sections: ['QUẢN LÝ XƯỞNG', 'XƯỞNG SẢN XUẤT', 'MẪU & GIÁ SẢN XUẤT'] },
     { name: 'BỘ PHẬN MARKETING', sections: ['Marketing Ads', 'Facebook Ads'] },
@@ -2872,6 +2875,13 @@ async function handleRoute() {
                         window.renderQuantrinhansuhvPage(content);
                     } else if (typeof renderQuantrinhansuhvPage === 'function') {
                         renderQuantrinhansuhvPage(content);
+                    }
+                    break;
+                case 'daotaonhansucaccap': case 'dao-tao-nhan-su-cac-cap':
+                    if (typeof window.renderDaotaonhansucaccapPage === 'function') {
+                        window.renderDaotaonhansucaccapPage(content);
+                    } else if (typeof renderDaotaonhansucaccapPage === 'function') {
+                        renderDaotaonhansucaccapPage(content);
                     }
                     break;
                 case 'hopdongtuyendung': case 'hop-dong-tuyen-dung':
