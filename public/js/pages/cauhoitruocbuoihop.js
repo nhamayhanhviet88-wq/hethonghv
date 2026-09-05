@@ -163,9 +163,7 @@
 
             return `
                 <div style="background:white;border-radius:12px;padding:14px 18px;box-shadow:0 2px 8px rgba(0,0,0,0.03);border-left:4px solid ${isCompleted ? '#22c55e' : '#f97316'};display:flex;flex-direction:column;gap:10px;transition:all 0.15s;" onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,0.07)'" onmouseout="this.style.boxShadow='0 2px 8px rgba(0,0,0,0.03)'">
-                    <div style="font-size:14.5px;font-weight:600;color:#0f172a;line-height:1.5;text-decoration:${isCompleted ? 'line-through' : 'none'};opacity:${isCompleted ? '0.65' : '1'};word-break:break-word;white-space:pre-wrap;">
-                        ${q.title}
-                    </div>
+                    <div style="font-size:14.5px;font-weight:600;color:#0f172a;line-height:1.5;text-decoration:${isCompleted ? 'line-through' : 'none'};opacity:${isCompleted ? '0.65' : '1'};word-break:break-word;white-space:pre-wrap;">${(q.title || '').trim()}</div>
                     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding-top:8px;border-top:1px dashed #f1f5f9;">
                         <div style="font-size:12px;color:#64748b;display:flex;align-items:center;gap:12px;">
                             <span>👤 ${q.creator_name || q.creator_username || ''}</span>

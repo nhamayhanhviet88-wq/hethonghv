@@ -317,7 +317,7 @@
 
                 return `
                     <div class="m-card ${isCompleted ? 'completed' : ''}">
-                        <div class="m-card-title">${q.title}</div>
+                        <div class="m-card-title">${(q.title || '').trim()}</div>
                         <div class="m-card-footer">
                             <div class="m-card-meta">
                                 <span>👤 ${q.creator_name || q.creator_username || ''}</span>
