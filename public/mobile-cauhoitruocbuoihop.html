@@ -106,11 +106,11 @@
         .m-modal-backdrop {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.5); z-index: 999; backdrop-filter: blur(2px);
-            justify-content: center; align-items: flex-end;
+            justify-content: center; align-items: flex-end; touch-action: none;
         }
         .m-modal-sheet {
             background: white; width: 100%; max-width: 500px; border-top-left-radius: 20px;
-            border-top-right-radius: 20px; padding: 20px; box-shadow: 0 -10px 30px rgba(0,0,0,0.2);
+            border-top-right-radius: 20px; padding: 22px 20px 30px; box-shadow: 0 -10px 30px rgba(0,0,0,0.2);
             animation: mSlideUp 0.25s ease-out; display: flex; flex-direction: column; gap: 14px;
         }
         @keyframes mSlideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
@@ -171,7 +171,7 @@
     </button>
 
     <!-- Bottom Sheet Modal -->
-    <div id="mModal" class="m-modal-backdrop">
+    <div id="mModal" class="m-modal-backdrop" onclick="if(event.target===this)closeModal()">
         <div class="m-modal-sheet">
             <div class="m-modal-header">
                 <h3 id="mModalTitle" class="m-modal-title">TẠO CÂU HỎI MỚI</h3>
@@ -180,7 +180,7 @@
             <form id="mForm" onsubmit="handleFormSubmit(event)">
                 <div class="m-form-group" style="margin-bottom:14px;">
                     <label class="m-form-label">Nội dung câu hỏi <span style="color:#ef4444;">*</span></label>
-                    <textarea id="mTitleInput" class="m-form-textarea" rows="3" placeholder="Nhập câu hỏi cần trao đổi..." required></textarea>
+                    <textarea id="mTitleInput" class="m-form-textarea" rows="5" style="min-height:130px;line-height:1.5;" placeholder="Nhập câu hỏi cần trao đổi..." required></textarea>
                 </div>
                 <button type="submit" class="m-form-submit">💾 LƯU CÂU HỎI</button>
             </form>
@@ -330,10 +330,12 @@
             document.getElementById('mModalTitle').textContent = _editingId ? 'CHỈNH SỬA CÂU HỎI' : 'TẠO CÂU HỎI MỚI';
             document.getElementById('mTitleInput').value = question ? (question.title || '') : '';
             document.getElementById('mModal').style.display = 'flex';
+            document.body.style.overflow = 'hidden';
         }
 
         function closeModal() {
             document.getElementById('mModal').style.display = 'none';
+            document.body.style.overflow = '';
             _editingId = null;
         }
 

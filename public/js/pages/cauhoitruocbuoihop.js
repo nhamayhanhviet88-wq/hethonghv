@@ -202,12 +202,14 @@
         }
 
         modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
         setTimeout(() => titleInput.focus(), 100);
     }
 
     function closeModal() {
         const modal = document.getElementById('chModal');
         if (modal) modal.style.display = 'none';
+        document.body.style.overflow = '';
         _editingQuestionId = null;
     }
 
