@@ -47,7 +47,7 @@ async function preMeetingQuestionsRoutes(fastify, options) {
 
             const creatorId = request.user.id;
             const initStatus = status === 'completed' ? 'completed' : 'pending';
-            const isImp = Boolean(is_important);
+            const isImp = is_important === true || is_important === 'true' || is_important === 1 || is_important === '1';
 
             const result = await db.run(
                 `INSERT INTO pre_meeting_questions (title, content, status, is_important, creator_id, created_at, updated_at)
@@ -105,7 +105,7 @@ async function preMeetingQuestionsRoutes(fastify, options) {
             }
 
             const newStatus = status === 'completed' ? 'completed' : 'pending';
-            const isImp = is_important !== undefined ? Boolean(is_important) : false;
+            const isImp = is_important === true || is_important === 'true' || is_important === 1 || is_important === '1';
 
             await db.run(
                 'UPDATE pre_meeting_questions SET title = $1, content = $2, status = $3, is_important = $4, updated_at = NOW() WHERE id = $5',

@@ -234,7 +234,7 @@
                         <option value="true">🔥 Quan trọng (Ưu tiên đầu)</option>
                     </select>
                 </div>
-                <button type="submit" id="mSubmitBtn" class="m-form-submit" onclick="handleFormSubmit(event)">💾 LƯU CÂU HỎI</button>
+                <button type="submit" id="mSubmitBtn" class="m-form-submit">💾 LƯU CÂU HỎI</button>
             </form>
         </div>
     </div>
@@ -244,6 +244,11 @@
         let _activeFilter = 'pending';
         let _editingId = null;
         let _currentUser = null;
+
+        function isImportant(q) {
+            if (!q) return false;
+            return q.is_important === true || q.is_important === 'true' || q.is_important === 1 || q.is_important === '1' || q.is_important === 't';
+        }
 
         async function initMobilePage() {
             try {
@@ -367,8 +372,10 @@
             });
 
             filtered.sort((a, b) => {
-                if (a.is_important && !b.is_important) return -1;
-                if (!a.is_important && b.is_important) return 1;
+                const aImp = isImportant(a);
+                const bImp = isImportant(b);
+                if (aImp && !bImp) return -1;
+                if (!aImp && bImp) return 1;
                 return 0;
             });
 
@@ -388,10 +395,11 @@
                 const isCompleted = q.status === 'completed';
                 const dateStr = q.created_at ? new Date(q.created_at).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }) : '';
                 const canEditThis = canManage || (_currentUser && q.creator_id === _currentUser.id);
+                const imp = isImportant(q);
 
                 return `
-                    <div class="m-card ${isCompleted ? 'completed' : ''}" style="${q.is_important ? 'border-left: 4px solid #ef4444; background: #fffdfd;' : ''}">
-                        <div class="m-card-title">${q.is_important ? `<span class="m-badge-important">🔥 QUAN TRỌNG</span>` : ''}${idx + 1} - ${(q.title || '').trim()}</div>
+                    <div class="m-card ${isCompleted ? 'completed' : ''}" style="${imp ? 'border-left: 4px solid #ef4444; background: #fffdfd;' : ''}">
+                        <div class="m-card-title">${imp ? `<span class="m-badge-important">🔥 QUAN TRỌNG</span>` : ''}${idx + 1} - ${(q.title || '').trim()}</div>
                         <div class="m-card-footer">
                             <div class="m-card-meta">
                                 <span>👤 ${q.creator_name || q.creator_username || ''}</span>
@@ -438,7 +446,8 @@
             document.getElementById('mModalTitle').textContent = _editingId ? 'CHỈNH SỬA CÂU HỎI' : 'TẠO CÂU HỎI MỚI';
             const titleInput = document.getElementById('mTitleInput');
             titleInput.value = question ? (question.title || '') : '';
-            document.getElementById('mImportantInput').value = question ? (question.is_important ? 'true' : 'false') : 'false';
+            const imp = isImportant(question);
+            document.getElementById('mImportantInput').value = imp ? 'true' : 'false';
             document.getElementById('mModal').style.display = 'flex';
             setTimeout(() => { titleInput.focus(); }, 150);
         }

@@ -170,6 +170,11 @@
         }
     }
 
+    function isImportant(q) {
+        if (!q) return false;
+        return q.is_important === true || q.is_important === 'true' || q.is_important === 1 || q.is_important === '1' || q.is_important === 't';
+    }
+
     function removeAccents(str) {
         if (!str) return '';
         return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
@@ -203,8 +208,10 @@
         });
 
         filtered.sort((a, b) => {
-            if (a.is_important && !b.is_important) return -1;
-            if (!a.is_important && b.is_important) return 1;
+            const aImp = isImportant(a);
+            const bImp = isImportant(b);
+            if (aImp && !bImp) return -1;
+            if (!aImp && bImp) return 1;
             return 0;
         });
 
@@ -225,10 +232,11 @@
             const isCompleted = q.status === 'completed';
             const dateStr = q.created_at ? new Date(q.created_at).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
             const canEditThis = canManage || q.creator_id === user.id;
+            const imp = isImportant(q);
 
             return `
-                <div style="background:white;border-radius:12px;padding:14px 18px;box-shadow:0 2px 8px rgba(0,0,0,0.03);border-left:4px solid ${q.is_important ? '#ef4444' : (isCompleted ? '#22c55e' : '#f97316')};${q.is_important ? 'background:#fffdfd;' : ''}display:flex;flex-direction:column;gap:10px;transition:all 0.15s;" onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,0.07)'" onmouseout="this.style.boxShadow='0 2px 8px rgba(0,0,0,0.03)'">
-                    <div style="font-size:14.5px;font-weight:600;color:#0f172a;line-height:1.5;opacity:${isCompleted ? '0.85' : '1'};word-break:break-word;white-space:pre-wrap;">${q.is_important ? `<span class="ch-badge-important">🔥 QUAN TRỌNG</span>` : ''}${idx + 1} - ${(q.title || '').trim()}</div>
+                <div style="background:white;border-radius:12px;padding:14px 18px;box-shadow:0 2px 8px rgba(0,0,0,0.03);border-left:4px solid ${imp ? '#ef4444' : (isCompleted ? '#22c55e' : '#f97316')};${imp ? 'background:#fffdfd;' : ''}display:flex;flex-direction:column;gap:10px;transition:all 0.15s;" onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,0.07)'" onmouseout="this.style.boxShadow='0 2px 8px rgba(0,0,0,0.03)'">
+                    <div style="font-size:14.5px;font-weight:600;color:#0f172a;line-height:1.5;opacity:${isCompleted ? '0.85' : '1'};word-break:break-word;white-space:pre-wrap;">${imp ? `<span class="ch-badge-important">🔥 QUAN TRỌNG</span>` : ''}${idx + 1} - ${(q.title || '').trim()}</div>
                     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding-top:8px;border-top:1px dashed #f1f5f9;">
                         <div style="font-size:12px;color:#64748b;display:flex;align-items:center;gap:12px;">
                             <span>👤 ${q.creator_name || q.creator_username || ''}</span>
@@ -261,7 +269,8 @@
             _editingQuestionId = question.id;
             modalTitle.textContent = 'CHỈNH SỬA CÂU HỎI TRƯỚC BUỔI HỌP';
             titleInput.value = question.title || '';
-            if (importantInput) importantInput.value = question.is_important ? 'true' : 'false';
+            const imp = isImportant(question);
+            if (importantInput) importantInput.value = imp ? 'true' : 'false';
         } else {
             _editingQuestionId = null;
             modalTitle.textContent = 'TẠO CÂU HỎI TRƯỚC BUỔI HỌP';
