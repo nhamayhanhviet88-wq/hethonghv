@@ -335,7 +335,7 @@
             const titleFormatted = capitalizeFirstLetter(q.title);
 
             return `
-                <div style="background:white;border-radius:12px;padding:14px 18px;box-shadow:0 2px 8px rgba(0,0,0,0.03);border-left:4px solid ${imp ? '#ef4444' : (isCompleted ? '#22c55e' : '#f97316')};${imp ? 'background:#fffdfd;' : ''}display:flex;flex-direction:column;gap:10px;transition:all 0.15s;" onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,0.07)'" onmouseout="this.style.boxShadow='0 2px 8px rgba(0,0,0,0.03)'">
+                <div style="background:${imp ? '#fff8f8' : 'white'};border-radius:12px;padding:14px 18px;box-shadow:${imp ? '0 3px 12px rgba(239,68,68,0.12)' : '0 2px 8px rgba(0,0,0,0.03)'};border:${imp ? '1.5px solid #ef4444;' : `1px solid #e2e8f0; border-left:4px solid ${isCompleted ? '#22c55e' : '#f97316'};`}display:flex;flex-direction:column;gap:10px;transition:all 0.15s;" onmouseover="this.style.boxShadow='${imp ? '0 4px 18px rgba(239,68,68,0.2)' : '0 4px 16px rgba(0,0,0,0.07)'}'" onmouseout="this.style.boxShadow='${imp ? '0 3px 12px rgba(239,68,68,0.12)' : '0 2px 8px rgba(0,0,0,0.03)'}'">
                     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
                         <div style="font-size:14.5px;font-weight:600;color:#0f172a;line-height:1.5;opacity:${isCompleted ? '0.85' : '1'};word-break:break-word;white-space:pre-wrap;flex:1;">${idx + 1} - ${titleFormatted}</div>
                         ${imp ? `<span class="ch-badge-important" title="Quan trọng">🔥</span>` : ''}

@@ -478,7 +478,7 @@
                 const titleFormatted = capitalizeFirstLetter(q.title);
 
                 return `
-                    <div class="m-card ${isCompleted ? 'completed' : ''}" style="${imp ? 'border-left: 4px solid #ef4444; background: #fffdfd;' : ''}">
+                    <div class="m-card ${isCompleted ? 'completed' : ''}" style="${imp ? 'border: 1.5px solid #ef4444 !important; background: #fff8f8; box-shadow: 0 3px 10px rgba(239,68,68,0.12);' : ''}">
                         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px;">
                             <div class="m-card-title" style="flex:1;margin-bottom:0;">${idx + 1} - ${titleFormatted}</div>
                             ${imp ? `<span class="m-badge-important" title="Quan trọng">🔥</span>` : ''}
