@@ -178,20 +178,9 @@
                 <button class="m-modal-close" onclick="closeModal()">✕</button>
             </div>
             <form id="mForm" onsubmit="handleFormSubmit(event)">
-                <div class="m-form-group" style="margin-bottom:12px;">
+                <div class="m-form-group" style="margin-bottom:14px;">
                     <label class="m-form-label">Nội dung câu hỏi <span style="color:#ef4444;">*</span></label>
                     <textarea id="mTitleInput" class="m-form-textarea" rows="3" placeholder="Nhập câu hỏi cần trao đổi..." required></textarea>
-                </div>
-                <div class="m-form-group" style="margin-bottom:12px;">
-                    <label class="m-form-label">Ghi chú chi tiết (nếu có)</label>
-                    <textarea id="mContentInput" class="m-form-textarea" rows="2" placeholder="Ghi chú thêm thông tin..."></textarea>
-                </div>
-                <div class="m-form-group" style="margin-bottom:14px;">
-                    <label class="m-form-label">Trạng thái</label>
-                    <select id="mStatusInput" class="m-form-select">
-                        <option value="pending">🟠 Chưa trao đổi</option>
-                        <option value="completed">🟢 Đã trao đổi</option>
-                    </select>
                 </div>
                 <button type="submit" class="m-form-submit">💾 LƯU CÂU HỎI</button>
             </form>
@@ -340,8 +329,6 @@
             _editingId = question ? question.id : null;
             document.getElementById('mModalTitle').textContent = _editingId ? 'CHỈNH SỬA CÂU HỎI' : 'TẠO CÂU HỎI MỚI';
             document.getElementById('mTitleInput').value = question ? (question.title || '') : '';
-            document.getElementById('mContentInput').value = question ? (question.content || '') : '';
-            document.getElementById('mStatusInput').value = question ? (question.status || 'pending') : 'pending';
             document.getElementById('mModal').style.display = 'flex';
         }
 
@@ -374,10 +361,11 @@
         async function handleFormSubmit(e) {
             e.preventDefault();
             const title = document.getElementById('mTitleInput').value.trim();
-            const content = document.getElementById('mContentInput').value.trim();
-            const status = document.getElementById('mStatusInput').value;
-
             if (!title) return;
+
+            const existing = _editingId ? _questions.find(q => q.id === _editingId) : null;
+            const content = existing ? (existing.content || '') : '';
+            const status = existing ? (existing.status || 'pending') : 'pending';
 
             try {
                 let res;

@@ -67,19 +67,6 @@
                             <textarea id="chTitleInput" rows="3" placeholder="Nhập câu hỏi hoặc vấn đề cần thảo luận..." style="width:100%;padding:10px 14px;border:1.5px solid #cbd5e1;border-radius:10px;font-size:14px;outline:none;box-sizing:border-box;" required></textarea>
                         </div>
 
-                        <div>
-                            <label style="display:block;font-size:13px;font-weight:700;color:#334155;margin-bottom:6px;">Ghi chú thêm (nếu có)</label>
-                            <textarea id="chContentInput" rows="2" placeholder="Ghi chú thêm thông tin chi tiết..." style="width:100%;padding:10px 14px;border:1.5px solid #cbd5e1;border-radius:10px;font-size:13px;outline:none;box-sizing:border-box;"></textarea>
-                        </div>
-
-                        <div>
-                            <label style="display:block;font-size:13px;font-weight:700;color:#334155;margin-bottom:6px;">Trạng thái ban đầu</label>
-                            <select id="chStatusInput" style="width:100%;padding:10px 14px;border:1.5px solid #cbd5e1;border-radius:10px;font-size:13px;font-weight:600;outline:none;box-sizing:border-box;">
-                                <option value="pending">🟠 Chưa trao đổi</option>
-                                <option value="completed">🟢 Đã trao đổi</option>
-                            </select>
-                        </div>
-
                         <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:10px;">
                             <button type="button" id="chModalCancelBtn" style="padding:9px 18px;background:#f1f5f9;color:#475569;border:none;border-radius:8px;font-weight:700;cursor:pointer;">Hủy</button>
                             <button type="submit" style="padding:9px 22px;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(79,70,229,0.3);">Lưu lại</button>
@@ -208,14 +195,10 @@
             _editingQuestionId = question.id;
             modalTitle.textContent = 'CHỈNH SỬA CÂU HỎI TRƯỚC BUỔI HỌP';
             titleInput.value = question.title || '';
-            contentInput.value = question.content || '';
-            statusInput.value = question.status || 'pending';
         } else {
             _editingQuestionId = null;
             modalTitle.textContent = 'TẠO CÂU HỎI TRƯỚC BUỔI HỌP';
             titleInput.value = '';
-            contentInput.value = '';
-            statusInput.value = 'pending';
         }
 
         modal.style.display = 'flex';
@@ -231,8 +214,9 @@
     async function handleFormSubmit(e) {
         e.preventDefault();
         const title = document.getElementById('chTitleInput')?.value.trim();
-        const content = document.getElementById('chContentInput')?.value.trim();
-        const status = document.getElementById('chStatusInput')?.value || 'pending';
+        const existing = _editingQuestionId ? _questions.find(q => q.id === _editingQuestionId) : null;
+        const content = existing ? (existing.content || '') : '';
+        const status = existing ? (existing.status || 'pending') : 'pending';
 
         if (!title) {
             alert('Vui lòng nhập nội dung câu hỏi');
