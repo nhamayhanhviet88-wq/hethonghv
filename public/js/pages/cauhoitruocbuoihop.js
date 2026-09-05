@@ -326,18 +326,6 @@
         }
     }
 
-            const data = await res.json();
-            if (data && data.success) {
-                closeModal();
-                await loadQuestions();
-            } else {
-                alert('❌ Lỗi: ' + (data.error || 'Thao tác thất bại'));
-            }
-        } catch (err) {
-            alert('❌ Lỗi kết nối: ' + err.message);
-        }
-    }
-
     // Global Action Handlers
     window.togglePreMeetingQuestionStatus = async function (id, newStatus) {
         try {

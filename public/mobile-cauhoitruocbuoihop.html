@@ -247,11 +247,14 @@
 
         async function initMobilePage() {
             try {
-                // Fetch me
-                const meRes = await fetch('/api/auth/me', { credentials: 'include' });
-                const meData = await meRes.json();
-                if (meData && meData.user) {
-                    _currentUser = meData.user;
+                const [meRes, questionsRes] = await Promise.all([
+                    fetch('/api/auth/me', { credentials: 'include' }).catch(() => null),
+                    fetch('/api/pre-meeting-questions', { credentials: 'include' }).catch(() => null)
+                ]);
+
+                if (meRes) {
+                    const meData = await meRes.json().catch(() => null);
+                    if (meData && meData.user) _currentUser = meData.user;
                 }
 
                 // Authority check for Add button
@@ -264,7 +267,8 @@
                 }
 
                 // Event listeners
-                document.getElementById('mSearchInput').oninput = filterAndRender;
+                const searchInput = document.getElementById('mSearchInput');
+                if (searchInput) searchInput.oninput = filterAndRender;
 
                 // Fix iOS Safari keyboard blur viewport scroll alignment
                 const titleInputEl = document.getElementById('mTitleInput');
@@ -285,9 +289,22 @@
                     }, { passive: false });
                 }
 
-                await loadQuestions();
+                const listEl = document.getElementById('mCardList');
+                if (questionsRes) {
+                    const data = await questionsRes.json().catch(() => null);
+                    if (data && data.success) {
+                        _questions = data.questions || [];
+                        filterAndRender();
+                    } else {
+                        if (listEl) listEl.innerHTML = `<div style="text-align:center;padding:40px;color:#ef4444;">⚠️ ${data?.error || 'Lỗi tải danh sách'}</div>`;
+                    }
+                } else {
+                    if (listEl) listEl.innerHTML = `<div style="text-align:center;padding:40px;color:#ef4444;">⚠️ Lỗi kết nối máy chủ</div>`;
+                }
             } catch (e) {
                 console.error('Init error:', e);
+                const listEl = document.getElementById('mCardList');
+                if (listEl) listEl.innerHTML = `<div style="text-align:center;padding:40px;color:#ef4444;">⚠️ Lỗi khởi tạo: ${e.message}</div>`;
             }
         }
 
