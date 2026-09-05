@@ -270,12 +270,18 @@
             modalTitle.textContent = 'CHỈNH SỬA CÂU HỎI TRƯỚC BUỔI HỌP';
             titleInput.value = question.title || '';
             const imp = isImportant(question);
-            if (importantInput) importantInput.value = imp ? 'true' : 'false';
+            if (importantInput) {
+                importantInput.selectedIndex = imp ? 1 : 0;
+                importantInput.value = imp ? 'true' : 'false';
+            }
         } else {
             _editingQuestionId = null;
             modalTitle.textContent = 'TẠO CÂU HỎI TRƯỚC BUỔI HỌP';
             titleInput.value = '';
-            if (importantInput) importantInput.value = 'false';
+            if (importantInput) {
+                importantInput.selectedIndex = 0;
+                importantInput.value = 'false';
+            }
         }
 
         modal.style.display = 'flex';
@@ -295,7 +301,8 @@
     async function handleFormSubmit(e) {
         e.preventDefault();
         const title = document.getElementById('chTitleInput')?.value.trim();
-        const is_important = document.getElementById('chImportantInput')?.value === 'true';
+        const importantEl = document.getElementById('chImportantInput');
+        const is_important = importantEl ? (importantEl.value === 'true' || importantEl.selectedIndex === 1) : false;
         const existing = _editingQuestionId ? _allQuestions.find(q => q.id === _editingQuestionId) : null;
         const content = existing ? (existing.content || '') : '';
         const status = existing ? (existing.status || 'pending') : 'pending';

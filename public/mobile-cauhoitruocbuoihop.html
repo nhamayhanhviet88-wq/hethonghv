@@ -447,7 +447,11 @@
             const titleInput = document.getElementById('mTitleInput');
             titleInput.value = question ? (question.title || '') : '';
             const imp = isImportant(question);
-            document.getElementById('mImportantInput').value = imp ? 'true' : 'false';
+            const importantEl = document.getElementById('mImportantInput');
+            if (importantEl) {
+                importantEl.selectedIndex = imp ? 1 : 0;
+                importantEl.value = imp ? 'true' : 'false';
+            }
             document.getElementById('mModal').style.display = 'flex';
             setTimeout(() => { titleInput.focus(); }, 150);
         }
@@ -483,7 +487,8 @@
             const title = document.getElementById('mTitleInput').value.trim();
             if (!title) return;
 
-            const is_important = document.getElementById('mImportantInput').value === 'true';
+            const importantEl = document.getElementById('mImportantInput');
+            const is_important = importantEl ? (importantEl.value === 'true' || importantEl.selectedIndex === 1) : false;
             const existing = _editingId ? _questions.find(q => q.id === _editingId) : null;
             const content = existing ? (existing.content || '') : '';
             const status = existing ? (existing.status || 'pending') : 'pending';
