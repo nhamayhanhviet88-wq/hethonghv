@@ -217,6 +217,16 @@
                 // Event listeners
                 document.getElementById('mSearchInput').oninput = filterAndRender;
 
+                // Lock background scroll on iOS/Android when dragging modal backdrop
+                const mModal = document.getElementById('mModal');
+                if (mModal) {
+                    mModal.addEventListener('touchmove', function(e) {
+                        if (!e.target.closest('.m-modal-sheet')) {
+                            e.preventDefault();
+                        }
+                    }, { passive: false });
+                }
+
                 await loadQuestions();
             } catch (e) {
                 console.error('Init error:', e);
@@ -334,11 +344,15 @@
             const titleInput = document.getElementById('mTitleInput');
             titleInput.value = question ? (question.title || '') : '';
             document.getElementById('mModal').style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+            document.documentElement.style.overflow = 'hidden';
             setTimeout(() => { titleInput.focus(); }, 150);
         }
 
         function closeModal() {
             document.getElementById('mModal').style.display = 'none';
+            document.body.style.overflow = '';
+            document.documentElement.style.overflow = '';
             _editingId = null;
         }
 
