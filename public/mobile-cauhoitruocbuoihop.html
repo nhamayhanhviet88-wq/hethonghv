@@ -31,11 +31,16 @@
             font-size: 18px; font-weight: 800; cursor: pointer; transition: background 0.15s;
         }
         .m-header h1 { font-size: 15px; font-weight: 800; letter-spacing: 0.3px; }
-        .m-add-btn {
-            background: white; color: #4f46e5; border: none; padding: 7px 14px;
-            border-radius: 20px; font-size: 13px; font-weight: 800; cursor: pointer;
-            display: flex; align-items: center; gap: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        .m-fab-btn {
+            position: fixed; bottom: 24px; right: 20px;
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            color: white; border: none; padding: 12px 20px;
+            border-radius: 30px; font-size: 14px; font-weight: 800; cursor: pointer;
+            display: flex; align-items: center; gap: 6px;
+            box-shadow: 0 6px 20px rgba(79, 70, 229, 0.45);
+            z-index: 99; transition: transform 0.15s, box-shadow 0.15s;
         }
+        .m-fab-btn:active { transform: scale(0.95); }
 
         /* Main Container */
         .m-container { padding: 14px; max-width: 500px; margin: 0 auto; padding-bottom: 90px; }
@@ -137,9 +142,6 @@
             <button class="m-back-btn" onclick="window.location.href='/m/dashboard'" title="Quay lại">‹</button>
             <h1>❓ CÂU HỎI TRƯỚC HỌP</h1>
         </div>
-        <button id="mAddBtn" class="m-add-btn">
-            <span>➕</span> Thêm
-        </button>
     </header>
 
     <!-- Main Container -->
@@ -162,6 +164,11 @@
             <div style="text-align:center;padding:40px;color:#64748b;">⏳ Đang tải dữ liệu...</div>
         </div>
     </main>
+
+    <!-- Floating Add Button -->
+    <button id="mAddBtn" class="m-fab-btn">
+        <span>➕</span> Thêm
+    </button>
 
     <!-- Bottom Sheet Modal -->
     <div id="mModal" class="m-modal-backdrop">
