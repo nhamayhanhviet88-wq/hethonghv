@@ -450,6 +450,12 @@
 
     // Global Action Handlers
     window.togglePreMeetingQuestionStatus = async function (id, newStatus) {
+        const confirmMsg = newStatus === 'completed' 
+            ? 'Xác nhận chuyển trạng thái câu hỏi này thành "🟢 Đã trao đổi"?'
+            : 'Xác nhận chuyển trạng thái câu hỏi này thành "🟠 Chưa trao đổi"?';
+            
+        if (!confirm(confirmMsg)) return;
+
         try {
             const res = await fetch(`/api/pre-meeting-questions/${id}/status`, {
                 method: 'PUT',
