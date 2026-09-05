@@ -1,7 +1,8 @@
 // ========== PHAN QUYEN (PERMISSIONS) ==========
 
 const PERM_FEATURES = [
-    // ===== TỔNG QUAN =====
+    // ===== CUỘC HỌP CÔNG TY =====
+    { key: 'cau_hoi_truoc_buoi_hop', label: 'Câu Hỏi Trước Buổi Họp', perms: ['view','create','edit','delete'], section: 'CUỘC HỌP CÔNG TY' },
     { key: 'quy_trinh_cuoc_hop', label: 'Quy Trình Cuộc Họp', perms: ['view','create','edit','delete'], section: 'CUỘC HỌP CÔNG TY' },
     { key: 'danh_gia_nhan_su', label: 'Đánh Giá Nhân Sự', perms: ['view','create','edit','delete'], section: 'CUỘC HỌP CÔNG TY' },
     { key: 'don_loi_noi_bo', label: 'Lỗi Thường Gặp & Xử Lý', perms: ['view','create','edit','delete'], section: 'CUỘC HỌP CÔNG TY' },
