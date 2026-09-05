@@ -171,19 +171,26 @@
     }
 
     function getUserBadgeStyle(creatorId, name) {
+        const nameStr = String(name || creatorId || 'Ẩn danh').trim().toLowerCase();
         const palettes = [
-            { bg: '#e0e7ff', text: '#3730a3', border: '#c7d2fe' },
-            { bg: '#dcfce7', text: '#166534', border: '#bbf7d0' },
-            { bg: '#f3e8ff', text: '#6b21a8', border: '#e9d5ff' },
-            { bg: '#ffedd5', text: '#9a3412', border: '#fed7aa' },
-            { bg: '#fce7f3', text: '#9d174d', border: '#fbcfe8' },
-            { bg: '#ccfbf1', text: '#115e59', border: '#99f6e4' },
-            { bg: '#dbeafe', text: '#1e40af', border: '#bfdbfe' },
-            { bg: '#fef3c7', text: '#854d0e', border: '#fde68a' },
+            { bg: '#eff6ff', text: '#1d4ed8', border: '#93c5fd' }, // Blue
+            { bg: '#f0fdf4', text: '#15803d', border: '#86efac' }, // Green
+            { bg: '#faf5ff', text: '#7e22ce', border: '#d8b4fe' }, // Purple
+            { bg: '#fff7ed', text: '#c2410c', border: '#fdba74' }, // Orange
+            { bg: '#fdf2f8', text: '#be185d', border: '#f472b6' }, // Pink
+            { bg: '#f0fdfa', text: '#0f766e', border: '#5eead4' }, // Teal
+            { bg: '#fefce8', text: '#a16207', border: '#fde047' }, // Amber
+            { bg: '#f1f5f9', text: '#0f172a', border: '#94a3b8' }, // Slate
+            { bg: '#e0f2fe', text: '#0369a1', border: '#7dd3fc' }, // Sky
+            { bg: '#ecfdf5', text: '#047857', border: '#6ee7b7' }, // Emerald
+            { bg: '#f5f3ff', text: '#6d28d9', border: '#c4b5fd' }, // Violet
+            { bg: '#fff1f2', text: '#be123c', border: '#fda4af' }, // Rose
         ];
-        const str = String(creatorId || name || '');
         let hash = 0;
-        for (let i = 0; i < str.length; i++) hash = (hash << 5) - hash + str.charCodeAt(i);
+        for (let i = 0; i < nameStr.length; i++) {
+            hash = (hash << 5) - hash + nameStr.charCodeAt(i);
+            hash |= 0;
+        }
         const index = Math.abs(hash) % palettes.length;
         return palettes[index];
     }
@@ -258,13 +265,13 @@
                     </div>
                     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding-top:8px;border-top:1px dashed #f1f5f9;">
                         <div style="font-size:12px;color:#64748b;display:flex;align-items:center;gap:12px;">
-                            <span style="display:inline-flex;align-items:center;gap:4px;background:${uStyle.bg};color:${uStyle.text};border:1px solid ${uStyle.border};padding:2px 9px;border-radius:10px;font-weight:700;font-size:12px;">
+                            <span style="display:inline-flex;align-items:center;gap:4px;background:${uStyle.bg};color:${uStyle.text};border:1px solid ${uStyle.border};padding:2px 10px;border-radius:10px;font-weight:800;font-size:12px;font-family:inherit;letter-spacing:-0.1px;">
                                 👤 ${creatorName}
                             </span>
-                            <span>📅 ${dateStr}</span>
+                            <span style="font-weight:600;">📅 ${dateStr}</span>
                         </div>
                         <div style="display:flex;align-items:center;gap:8px;">
-                            <button onclick="window.togglePreMeetingQuestionStatus(${q.id}, '${isCompleted ? 'pending' : 'completed'}')" ${isOwner ? '' : 'disabled'} title="${isOwner ? 'Nhấp để đổi trạng thái' : 'Chỉ người tạo mới được đổi trạng thái'}" style="background:${isCompleted ? '#dcfce7' : '#ffedd5'};border:1.5px solid ${isCompleted ? '#86efac' : '#fed7aa'};color:${isCompleted ? '#15803d' : '#c2410c'};padding:5px 14px;border-radius:16px;font-weight:800;font-size:11.5px;cursor:${isOwner ? 'pointer' : 'not-allowed'};opacity:${isOwner ? '1' : '0.6'};white-space:nowrap;">
+                            <button onclick="window.togglePreMeetingQuestionStatus(${q.id}, '${isCompleted ? 'pending' : 'completed'}')" ${isOwner ? '' : 'disabled'} title="${isOwner ? 'Nhấp để đổi trạng thái' : 'Chỉ người tạo mới được đổi trạng thái'}" style="background:${isCompleted ? '#dcfce7' : '#fff7ed'};border:1.5px solid ${isCompleted ? '#86efac' : '#fed7aa'};color:${isCompleted ? '#15803d' : '#c2410c'};padding:5px 14px;border-radius:16px;font-weight:800;font-size:12px;font-family:inherit;letter-spacing:-0.1px;cursor:${isOwner ? 'pointer' : 'not-allowed'};opacity:${isOwner ? '1' : '0.6'};white-space:nowrap;">
                                 ${isCompleted ? '🟢 Đã trao đổi' : '🟠 Chưa trao đổi'}
                             </button>
                             ${isOwner ? `
