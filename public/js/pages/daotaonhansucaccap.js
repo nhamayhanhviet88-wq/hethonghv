@@ -1098,14 +1098,14 @@
         const canManage = _dtnsCanManage();
 
         container.innerHTML = `
-            <div style="padding: 20px; max-width: 1440px; margin: 0 auto; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+            <div class="dtns-wrapper">
                 <!-- Header Banner -->
                 <div style="
-                    background: linear-gradient(135deg, #3b0764 0%, #6b21a8 50%, #4c1d95 100%);
-                    border-radius: 22px;
+                    background: linear-gradient(135deg, #3b0764 0%, #5b21b6 50%, #6d28d9 100%);
+                    border-radius: 24px;
                     padding: 28px 32px;
                     color: #ffffff;
-                    box-shadow: 0 12px 30px -8px rgba(107, 33, 168, 0.4);
+                    box-shadow: 0 14px 35px rgba(91, 33, 182, 0.25);
                     margin-bottom: 24px;
                     display: flex;
                     align-items: center;
@@ -1452,6 +1452,37 @@
                     ` : '')}
                 </div>
             </div>
+            ${_dtnsGetStyles()}
+        `;
+    }
+
+    function _dtnsGetStyles() {
+        return `
+            <style>
+                @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Comfortaa:wght@500;600;700&display=swap');
+
+                .dtns-wrapper, .dtns-wrapper button, .dtns-wrapper input, .dtns-wrapper select, .dtns-wrapper textarea, .dtns-wrapper div, .dtns-wrapper span, .dtns-wrapper h1, .dtns-wrapper h2, .dtns-wrapper h3, .dtns-wrapper h4, .dtns-wrapper p, .dtns-wrapper a,
+                .dtns-modal-overlay, .dtns-modal-overlay button, .dtns-modal-overlay input, .dtns-modal-overlay select, .dtns-modal-overlay textarea, .dtns-modal-overlay div, .dtns-modal-overlay span, .dtns-modal-overlay h1, .dtns-modal-overlay h2, .dtns-modal-overlay h3, .dtns-modal-overlay h4, .dtns-modal-overlay p, .dtns-modal-overlay a {
+                    font-family: 'Nunito', 'Comfortaa', system-ui, -apple-system, sans-serif !important;
+                }
+                .dtns-wrapper {
+                    padding: 24px;
+                    background: #f8fafc;
+                    min-height: 100vh;
+                    width: 100%;
+                    box-sizing: border-box;
+                }
+                .dtns-link-card:hover {
+                    transform: translateY(-4px);
+                    box-shadow: 0 16px 32px rgba(79, 70, 229, 0.12) !important;
+                    border-color: #818cf8 !important;
+                }
+                @media (max-width: 768px) {
+                    .dtns-wrapper {
+                        padding: 14px;
+                    }
+                }
+            </style>
         `;
     }
 
