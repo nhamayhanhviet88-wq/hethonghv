@@ -1,12 +1,25 @@
 (function () {
     let _allQuestions = [];
     let _editingQuestionId = null;
+    let _currentUser = null;
+    let _hasManuallySetUserFilter = false;
 
     async function initCauHoiTruocBuoiHop(container) {
         if (!container) return;
 
-        // User authority check: Giám Đốc, Quản Lý Cấp Cao, hoặc anh Lê Việt Trình (username = 'trinh')
-        const user = window.currentUser || window._currentUser || {};
+        // Fetch current user if not available
+        _currentUser = window.currentUser || window._currentUser || null;
+        if (!_currentUser) {
+            try {
+                const meRes = await fetch('/api/auth/me', { credentials: 'include' });
+                const meData = await meRes.json();
+                if (meData && meData.user) {
+                    _currentUser = meData.user;
+                }
+            } catch (e) {}
+        }
+
+        const user = _currentUser || {};
         const canManage = user.role === 'giam_doc' || user.role === 'quan_ly_cap_cao' || user.username === 'trinh';
 
         container.innerHTML = `
@@ -31,7 +44,7 @@
 
                 <!-- Filter & Control Bar -->
                 <div style="background:white;border-radius:14px;padding:16px 20px;box-shadow:0 4px 15px rgba(0,0,0,0.05);margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;">
-                    <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:280px;">
+                    <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:260px;">
                         <div style="position:relative;flex:1;">
                             <span style="position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:16px;color:#94a3b8;">🔍</span>
                             <input type="text" id="chSearchInput" placeholder="Tìm kiếm nội dung câu hỏi, người tạo..." style="width:100%;padding:10px 14px 10px 40px;border:1.5px solid #cbd5e1;border-radius:10px;font-size:14px;outline:none;transition:border-color 0.2s;box-sizing:border-box;" onfocus="this.style.borderColor='#4f46e5'" onblur="this.style.borderColor='#cbd5e1'">
@@ -44,6 +57,11 @@
                             <option value="all">Tất cả trạng thái</option>
                             <option value="pending" selected>🟠 Chưa trao đổi</option>
                             <option value="completed">🟢 Đã trao đổi</option>
+                        </select>
+
+                        <label style="font-size:13px;font-weight:700;color:#475569;margin-left:6px;">Tài khoản:</label>
+                        <select id="chUserFilter" style="padding:9px 14px;border:1.5px solid #cbd5e1;border-radius:10px;font-size:13px;font-weight:700;color:#4f46e5;outline:none;cursor:pointer;background:#f5f3ff;">
+                            <option value="all">🌐 Tất cả tài khoản</option>
                         </select>
 
                         <label style="font-size:13px;font-weight:700;color:#475569;margin-left:6px;">Thời gian:</label>
@@ -130,6 +148,14 @@
         const statusFilter = document.getElementById('chStatusFilter');
         if (statusFilter) statusFilter.onchange = filterAndRender;
 
+        const userFilter = document.getElementById('chUserFilter');
+        if (userFilter) {
+            userFilter.onchange = () => {
+                _hasManuallySetUserFilter = true;
+                filterAndRender();
+            };
+        }
+
         const monthFilter = document.getElementById('chMonthFilter');
         if (monthFilter) monthFilter.onchange = filterAndRender;
 
@@ -156,12 +182,53 @@
             const data = await res.json();
             if (data && data.success) {
                 _allQuestions = data.questions || [];
+                updateUserFilterOptions();
                 filterAndRender();
             } else {
                 listEl.innerHTML = `<div style="text-align:center;padding:40px;color:#ef4444;">⚠️ ${data.error || 'Lỗi nạp dữ liệu'}</div>`;
             }
         } catch (e) {
             listEl.innerHTML = `<div style="text-align:center;padding:40px;color:#ef4444;">⚠️ Lỗi kết nối: ${e.message}</div>`;
+        }
+    }
+
+    function updateUserFilterOptions() {
+        const userSelect = document.getElementById('chUserFilter');
+        if (!userSelect) return;
+
+        const creatorsMap = new Map();
+
+        // Add logged in user if available
+        if (_currentUser && _currentUser.id) {
+            const myName = _currentUser.full_name || _currentUser.name || _currentUser.username || 'Tôi';
+            creatorsMap.set(String(_currentUser.id), `${myName} (Tôi)`);
+        }
+
+        // Add all unique creators from questions
+        _allQuestions.forEach(q => {
+            if (q.creator_id) {
+                const idStr = String(q.creator_id);
+                if (!creatorsMap.has(idStr)) {
+                    const name = q.creator_name || q.creator_username || `Tài khoản ${q.creator_id}`;
+                    creatorsMap.set(idStr, name);
+                }
+            }
+        });
+
+        const prevVal = userSelect.value;
+        let html = `<option value="all">🌐 Tất cả tài khoản</option>`;
+        creatorsMap.forEach((name, idStr) => {
+            html += `<option value="${idStr}">👤 ${name}</option>`;
+        });
+        userSelect.innerHTML = html;
+
+        // Auto-default to logged in user if user hasn't manually selected another filter
+        if (!_hasManuallySetUserFilter && _currentUser && _currentUser.id && creatorsMap.has(String(_currentUser.id))) {
+            userSelect.value = String(_currentUser.id);
+        } else if (prevVal && (prevVal === 'all' || creatorsMap.has(prevVal))) {
+            userSelect.value = prevVal;
+        } else {
+            userSelect.value = 'all';
         }
     }
 
@@ -206,11 +273,13 @@
 
         const searchVal = removeAccents(document.getElementById('chSearchInput')?.value.trim() || '');
         const statusVal = document.getElementById('chStatusFilter')?.value || 'all';
+        const userVal = document.getElementById('chUserFilter')?.value || 'all';
         const monthVal = document.getElementById('chMonthFilter')?.value || 'all';
         const yearVal = document.getElementById('chYearFilter')?.value || 'all';
 
         let filtered = _allQuestions.filter(q => {
             if (statusVal !== 'all' && q.status !== statusVal) return false;
+            if (userVal !== 'all' && String(q.creator_id) !== String(userVal)) return false;
 
             if (q.created_at) {
                 const d = new Date(q.created_at);

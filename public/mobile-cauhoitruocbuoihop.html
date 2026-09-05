@@ -174,7 +174,10 @@
                 <button class="m-pill active-pending" onclick="setFilter('pending', this)">🟠 Chưa trao đổi</button>
                 <button class="m-pill" onclick="setFilter('completed', this)">🟢 Đã trao đổi</button>
             </div>
-            <div class="m-date-filters" style="display:flex;gap:8px;margin-top:10px;">
+            <div class="m-date-filters" style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+                <select id="mUserFilter" onchange="onMobileUserFilterChange()" style="flex:1;min-width:140px;padding:8px 10px;border-radius:10px;border:1px solid #cbd5e1;font-size:12px;font-weight:700;color:#4f46e5;outline:none;background:#f5f3ff;">
+                    <option value="all">🌐 Tất cả tài khoản</option>
+                </select>
                 <select id="mMonthFilter" onchange="filterAndRender()" style="flex:1;padding:8px 10px;border-radius:10px;border:1px solid #cbd5e1;font-size:12px;font-weight:600;color:#334155;outline:none;background:white;">
                     <option value="all">📅 Tất cả tháng</option>
                     <option value="1">Tháng 1</option>
@@ -239,10 +242,53 @@
         let _activeFilter = 'pending';
         let _editingId = null;
         let _currentUser = null;
+        let _hasManuallySetUserFilter = false;
 
         function isImportant(q) {
             if (!q) return false;
             return q.is_important === true || q.is_important === 'true' || q.is_important === 1 || q.is_important === '1' || q.is_important === 't';
+        }
+
+        function onMobileUserFilterChange() {
+            _hasManuallySetUserFilter = true;
+            filterAndRender();
+        }
+
+        function updateUserFilterOptions() {
+            const userSelect = document.getElementById('mUserFilter');
+            if (!userSelect) return;
+
+            const creatorsMap = new Map();
+
+            if (_currentUser && _currentUser.id) {
+                const myName = _currentUser.full_name || _currentUser.name || _currentUser.username || 'Tôi';
+                creatorsMap.set(String(_currentUser.id), `${myName} (Tôi)`);
+            }
+
+            _questions.forEach(q => {
+                if (q.creator_id) {
+                    const idStr = String(q.creator_id);
+                    if (!creatorsMap.has(idStr)) {
+                        const name = q.creator_name || q.creator_username || `Tài khoản ${q.creator_id}`;
+                        creatorsMap.set(idStr, name);
+                    }
+                }
+            });
+
+            const prevVal = userSelect.value;
+            let html = `<option value="all">🌐 Tất cả tài khoản</option>`;
+            creatorsMap.forEach((name, idStr) => {
+                html += `<option value="${idStr}">👤 ${name}</option>`;
+            });
+            userSelect.innerHTML = html;
+
+            if (!_hasManuallySetUserFilter && _currentUser && _currentUser.id && creatorsMap.has(String(_currentUser.id))) {
+                userSelect.value = String(_currentUser.id);
+            } else if (prevVal && (prevVal === 'all' || creatorsMap.has(prevVal))) {
+                userSelect.value = prevVal;
+            } else {
+                userSelect.value = 'all';
+            }
         }
 
         async function initMobilePage() {
@@ -294,6 +340,7 @@
                     const data = await questionsRes.json().catch(() => null);
                     if (data && data.success) {
                         _questions = data.questions || [];
+                        updateUserFilterOptions();
                         filterAndRender();
                     } else {
                         if (listEl) listEl.innerHTML = `<div style="text-align:center;padding:40px;color:#ef4444;">⚠️ ${data?.error || 'Lỗi tải danh sách'}</div>`;
@@ -315,6 +362,7 @@
                 const data = await res.json();
                 if (data && data.success) {
                     _questions = data.questions || [];
+                    updateUserFilterOptions();
                     filterAndRender();
                 } else {
                     listEl.innerHTML = `<div style="text-align:center;padding:40px;color:#ef4444;">⚠️ ${data.error || 'Lỗi tải danh sách'}</div>`;
@@ -370,11 +418,13 @@
             if (!listEl) return;
 
             const searchVal = removeAccents(document.getElementById('mSearchInput').value.trim());
+            const userVal = document.getElementById('mUserFilter')?.value || 'all';
             const monthVal = document.getElementById('mMonthFilter')?.value || 'all';
             const yearVal = document.getElementById('mYearFilter')?.value || 'all';
 
             let filtered = _questions.filter(q => {
                 if (_activeFilter !== 'all' && q.status !== _activeFilter) return false;
+                if (userVal !== 'all' && String(q.creator_id) !== String(userVal)) return false;
 
                 if (q.created_at) {
                     const d = new Date(q.created_at);
