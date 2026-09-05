@@ -175,7 +175,10 @@
                             <button onclick="window.togglePreMeetingQuestionStatus(${q.id}, '${isCompleted ? 'pending' : 'completed'}')" ${canManage ? '' : 'disabled'} title="${canManage ? 'Nhấp để đổi trạng thái' : ''}" style="background:${isCompleted ? '#dcfce7' : '#ffedd5'};border:1.5px solid ${isCompleted ? '#86efac' : '#fed7aa'};color:${isCompleted ? '#15803d' : '#c2410c'};padding:5px 14px;border-radius:16px;font-weight:800;font-size:11.5px;cursor:${canManage ? 'pointer' : 'default'};white-space:nowrap;">
                                 ${isCompleted ? '🟢 Đã trao đổi' : '🟠 Chưa trao đổi'}
                             </button>
-                            ${canEditThis ? `<button onclick="window.editPreMeetingQuestion(${q.id})" style="background:#f1f5f9;color:#475569;border:none;width:30px;height:30px;border-radius:8px;font-size:13px;cursor:pointer;" title="Chỉnh sửa">✏️</button>` : ''}
+                            ${canEditThis ? `
+                                <button onclick="window.editPreMeetingQuestion(${q.id})" style="background:#f1f5f9;color:#475569;border:none;width:30px;height:30px;border-radius:8px;font-size:13px;cursor:pointer;" title="Chỉnh sửa">✏️</button>
+                                <button onclick="window.deletePreMeetingQuestion(${q.id})" style="background:#fef2f2;color:#ef4444;border:none;width:30px;height:30px;border-radius:8px;font-size:13px;cursor:pointer;" title="Xóa câu hỏi">🗑️</button>
+                            ` : ''}
                         </div>
                     </div>
                 </div>

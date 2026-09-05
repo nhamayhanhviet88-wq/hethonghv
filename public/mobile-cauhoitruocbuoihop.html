@@ -107,6 +107,7 @@
             display: flex; align-items: center; justify-content: center; font-size: 13px; cursor: pointer;
         }
         .m-btn-edit { background: #f1f5f9; color: #475569; }
+        .m-btn-delete { background: #fef2f2; color: #ef4444; }
 
         /* Bottom Sheet Modal */
         .m-modal-backdrop {
@@ -326,7 +327,10 @@
                                 <button class="m-status-toggle ${isCompleted ? 'is-completed' : ''}" onclick="toggleStatus(${q.id}, '${isCompleted ? 'pending' : 'completed'}')" ${canManage ? '' : 'disabled'}>
                                     ${isCompleted ? '🟢 Đã trao đổi' : '🟠 Chưa trao đổi'}
                                 </button>
-                                ${canEditThis ? `<button class="m-icon-btn m-btn-edit" onclick="editQuestion(${q.id})">✏️</button>` : ''}
+                                ${canEditThis ? `
+                                    <button class="m-icon-btn m-btn-edit" onclick="editQuestion(${q.id})" title="Sửa">✏️</button>
+                                    <button class="m-icon-btn m-btn-delete" onclick="deleteQuestion(${q.id})" title="Xóa">🗑️</button>
+                                ` : ''}
                             </div>
                         </div>
                     </div>
