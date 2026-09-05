@@ -2168,8 +2168,19 @@ async function start() {
     // Start
     if (process.env.TEST_MODE !== 'true') {
         const PORT = process.env.PORT || 11000;
-        await fastify.listen({ port: PORT, host: '0.0.0.0' });
-        console.log(`🚀 Đồng Phục HV CRM đang chạy tại http://localhost:${PORT}`);
+        try {
+            await fastify.listen({ port: PORT, host: '0.0.0.0' });
+            console.log(`🚀 Đồng Phục HV CRM đang chạy tại http://localhost:${PORT}`);
+        } catch (err) {
+            if (err.code === 'EADDRINUSE') {
+                console.warn(`⚠️ Port ${PORT} busy, retrying in 2s...`);
+                await new Promise(r => setTimeout(r, 2000));
+                await fastify.listen({ port: PORT, host: '0.0.0.0' });
+                console.log(`🚀 Đồng Phục HV CRM đang chạy tại http://localhost:${PORT}`);
+            } else {
+                throw err;
+            }
+        }
     } else {
         console.log('🚀 Running in TEST_MODE - skipping port binding');
         await fastify.ready();

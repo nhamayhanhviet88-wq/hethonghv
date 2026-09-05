@@ -30,6 +30,7 @@ async function preMeetingQuestionsRoutes(fastify, options) {
             query += ` ORDER BY COALESCE(q.is_important, FALSE) DESC, q.created_at DESC`;
 
             const questions = await db.all(query, params);
+            console.log('API_QUESTIONS_QUERY_RESULT:', questions ? questions.slice(0, 3) : []);
             return { success: true, questions: questions || [] };
         } catch (err) {
             console.error('Error fetching pre-meeting questions:', err);
