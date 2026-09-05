@@ -36,8 +36,8 @@
                         </div>
                     </div>
                     ${canManage ? `
-                        <button id="chAddBtn" style="background:#ffffff;color:#4f46e5;border:none;padding:10px 20px;border-radius:10px;font-weight:800;font-size:14px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);transition:all 0.2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='none'">
-                            <span>➕</span> Thêm Câu Hỏi Mới
+                        <button id="chAddBtn" style="background:#ffffff;color:#4f46e5;border:none;padding:7px 18px;border-radius:20px;font-weight:800;font-size:13px;font-family:inherit;letter-spacing:-0.1px;line-height:1.2;cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:0 4px 12px rgba(0,0,0,0.12);transition:all 0.2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='none'">
+                            <span style="font-size:14px;font-weight:800;">➕</span> Thêm Câu Hỏi Mới
                         </button>
                     ` : ''}
                 </div>
