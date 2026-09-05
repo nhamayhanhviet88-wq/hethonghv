@@ -175,33 +175,21 @@
             const canEditThis = canManage || q.creator_id === user.id;
 
             return `
-                <div style="background:white;border-radius:14px;padding:18px 22px;box-shadow:0 4px 15px rgba(0,0,0,0.04);border-left:5px solid ${isCompleted ? '#22c55e' : '#f97316'};display:flex;align-items:flex-start;justify-content:space-between;gap:16px;transition:all 0.2s;" onmouseover="this.style.boxShadow='0 6px 20px rgba(0,0,0,0.08)'" onmouseout="this.style.boxShadow='0 4px 15px rgba(0,0,0,0.04)'">
-                    <div style="display:flex;align-items:flex-start;gap:14px;flex:1;">
-                        <!-- Status Toggle Button -->
-                        <button onclick="window.togglePreMeetingQuestionStatus(${q.id}, '${isCompleted ? 'pending' : 'completed'}')" ${canManage ? '' : 'disabled'} title="${canManage ? 'Nhấp để đổi trạng thái' : ''}" style="background:${isCompleted ? '#dcfce7' : '#ffedd5'};border:1.5px solid ${isCompleted ? '#86efac' : '#fed7aa'};color:${isCompleted ? '#15803d' : '#c2410c'};padding:6px 12px;border-radius:20px;font-weight:800;font-size:12px;cursor:${canManage ? 'pointer' : 'default'};display:inline-flex;align-items:center;gap:6px;flex-shrink:0;margin-top:2px;transition:all 0.15s;">
-                            <span>${isCompleted ? '🟢 ĐÃ TRAO ĐỔI' : '🟠 CHƯA TRAO ĐỔI'}</span>
-                        </button>
+                <div style="background:white;border-radius:10px;padding:12px 16px;box-shadow:0 2px 8px rgba(0,0,0,0.03);border-left:4px solid ${isCompleted ? '#22c55e' : '#f97316'};display:flex;align-items:center;gap:14px;transition:all 0.15s;" onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,0.07)'" onmouseout="this.style.boxShadow='0 2px 8px rgba(0,0,0,0.03)'">
+                    <button onclick="window.togglePreMeetingQuestionStatus(${q.id}, '${isCompleted ? 'pending' : 'completed'}')" ${canManage ? '' : 'disabled'} title="${canManage ? 'Nhấp để đổi trạng thái' : ''}" style="background:${isCompleted ? '#dcfce7' : '#ffedd5'};border:1.5px solid ${isCompleted ? '#86efac' : '#fed7aa'};color:${isCompleted ? '#15803d' : '#c2410c'};padding:5px 12px;border-radius:16px;font-weight:800;font-size:11px;cursor:${canManage ? 'pointer' : 'default'};white-space:nowrap;flex-shrink:0;">
+                        ${isCompleted ? '🟢 Đã' : '🟠 Chưa'}
+                    </button>
 
-                        <div style="flex:1;">
-                            <div style="font-size:15px;font-weight:700;color:#1e293b;line-height:1.5;text-decoration:${isCompleted ? 'line-through' : 'none'};opacity:${isCompleted ? '0.75' : '1'};">
-                                ${q.title}
-                            </div>
-                            ${q.content ? `<div style="font-size:13px;color:#64748b;margin-top:6px;line-height:1.4;">${q.content}</div>` : ''}
-
-                            <div style="display:flex;align-items:center;gap:12px;margin-top:10px;font-size:11px;color:#94a3b8;flex-wrap:wrap;">
-                                <span>👤 Người tạo: <strong style="color:#475569;">${q.creator_name || q.creator_username || 'Hệ thống'}</strong></span>
-                                ${q.creator_department ? `<span>🏢 Phòng ban: <strong style="color:#475569;">${q.creator_department}</strong></span>` : ''}
-                                <span>📅 Ngày tạo: ${dateStr}</span>
-                            </div>
-                        </div>
+                    <div style="flex:1;min-width:0;font-size:14px;font-weight:700;color:#1e293b;text-decoration:${isCompleted ? 'line-through' : 'none'};opacity:${isCompleted ? '0.65' : '1'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${(q.content || q.title).replace(/"/g, '&quot;')}">
+                        ${q.title}
                     </div>
 
-                    ${canEditThis ? `
-                        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
-                            <button onclick="window.editPreMeetingQuestion(${q.id})" style="background:#f1f5f9;color:#475569;border:none;padding:6px 10px;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;" title="Chỉnh sửa">✏️</button>
-                            <button onclick="window.deletePreMeetingQuestion(${q.id})" style="background:#fef2f2;color:#dc2626;border:none;padding:6px 10px;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;" title="Xóa">🗑️</button>
-                        </div>
-                    ` : ''}
+                    <div style="font-size:11px;color:#94a3b8;white-space:nowrap;text-align:right;flex-shrink:0;line-height:1.5;">
+                        <div>👤 ${q.creator_name || q.creator_username || ''}</div>
+                        <div>📅 ${dateStr}</div>
+                    </div>
+
+                    ${canEditThis ? `<button onclick="window.editPreMeetingQuestion(${q.id})" style="background:#f1f5f9;color:#475569;border:none;width:30px;height:30px;border-radius:8px;font-size:13px;cursor:pointer;flex-shrink:0;" title="Chỉnh sửa">✏️</button>` : ''}
                 </div>
             `;
         }).join('');

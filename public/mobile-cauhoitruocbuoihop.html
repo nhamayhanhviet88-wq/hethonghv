@@ -65,39 +65,37 @@
         .m-pill.active-completed { background: #16a34a; color: white; border-color: #16a34a; }
 
         /* Question Cards */
-        .m-card-list { display: flex; flex-direction: column; gap: 10px; }
+        .m-card-list { display: flex; flex-direction: column; gap: 6px; }
         .m-card {
-            background: white; border-radius: 14px; padding: 14px 16px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.03); border: 1px solid #e2e8f0;
-            border-left: 5px solid #ea580c; display: flex; flex-direction: column; gap: 10px;
+            background: white; border-radius: 10px; padding: 10px 12px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.04); border: 1px solid #e2e8f0;
+            border-left: 4px solid #ea580c;
+            display: flex; align-items: center; gap: 10px;
         }
         .m-card.completed { border-left-color: #16a34a; }
 
-        .m-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
         .m-card-title {
-            font-size: 14px; font-weight: 700; color: #0f172a; line-height: 1.4;
+            font-size: 13px; font-weight: 700; color: #0f172a; line-height: 1.3;
+            flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
         }
-        .m-card.completed .m-card-title { text-decoration: line-through; opacity: 0.75; }
+        .m-card.completed .m-card-title { text-decoration: line-through; opacity: 0.6; }
 
-        .m-card-content { font-size: 12.5px; color: #64748b; line-height: 1.4; background: #f8fafc; padding: 8px 10px; border-radius: 8px; }
+        .m-card-meta { font-size: 10px; color: #94a3b8; white-space: nowrap; text-align: right; min-width: 70px; line-height: 1.5; }
 
-        .m-card-meta { font-size: 11px; color: #94a3b8; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; }
-
-        /* Action Row */
-        .m-card-actions { display: flex; align-items: center; justify-content: space-between; pt: 4px; }
+        .m-card-actions { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
         .m-status-toggle {
-            padding: 6px 12px; border-radius: 20px; font-size: 11.5px; font-weight: 800;
+            padding: 4px 10px; border-radius: 16px; font-size: 10px; font-weight: 800;
             border: 1px solid #fed7aa; background: #fff7ed; color: #c2410c; cursor: pointer;
-            display: inline-flex; align-items: center; gap: 4px;
+            white-space: nowrap;
         }
         .m-status-toggle.is-completed { border-color: #bbf7d0; background: #f0fdf4; color: #15803d; }
 
         .m-icon-btn {
-            width: 32px; height: 32px; border-radius: 8px; border: none;
-            display: flex; align-items: center; justify-content: center; font-size: 13px; cursor: pointer;
+            width: 28px; height: 28px; border-radius: 6px; border: none;
+            display: flex; align-items: center; justify-content: center; font-size: 12px; cursor: pointer;
         }
         .m-btn-edit { background: #f1f5f9; color: #475569; }
-        .m-btn-delete { background: #fef2f2; color: #dc2626; }
 
         /* Bottom Sheet Modal */
         .m-modal-backdrop {
@@ -294,28 +292,16 @@
 
                 return `
                     <div class="m-card ${isCompleted ? 'completed' : ''}">
-                        <div class="m-card-top">
-                            <div class="m-card-title">${q.title}</div>
-                        </div>
-
-                        ${q.content ? `<div class="m-card-content">${q.content}</div>` : ''}
-
+                        <div class="m-card-title" title="${(q.content || '').replace(/"/g, '&quot;')}">${q.title}</div>
                         <div class="m-card-meta">
-                            <span>👤 ${q.creator_name || q.creator_username || 'Hệ thống'} ${q.creator_department ? `(${q.creator_department})` : ''}</span>
-                            <span>📅 ${dateStr}</span>
+                            <div>👤 ${q.creator_name || q.creator_username || ''}</div>
+                            <div>📅 ${dateStr}</div>
                         </div>
-
                         <div class="m-card-actions">
                             <button class="m-status-toggle ${isCompleted ? 'is-completed' : ''}" onclick="toggleStatus(${q.id}, '${isCompleted ? 'pending' : 'completed'}')" ${canManage ? '' : 'disabled'}>
-                                ${isCompleted ? '🟢 ĐÃ TRAO ĐỔI' : '🟠 CHƯA TRAO ĐỔI'}
+                                ${isCompleted ? '🟢 Đã' : '🟠 Chưa'}
                             </button>
-
-                            ${canEditThis ? `
-                                <div style="display:flex;gap:6px;">
-                                    <button class="m-icon-btn m-btn-edit" onclick="editQuestion(${q.id})">✏️</button>
-                                    <button class="m-icon-btn m-btn-delete" onclick="deleteQuestion(${q.id})">🗑️</button>
-                                </div>
-                            ` : ''}
+                            ${canEditThis ? `<button class="m-icon-btn m-btn-edit" onclick="editQuestion(${q.id})">✏️</button>` : ''}
                         </div>
                     </div>
                 `;
