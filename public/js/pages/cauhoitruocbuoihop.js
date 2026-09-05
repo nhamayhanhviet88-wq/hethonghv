@@ -105,7 +105,7 @@
                     <form id="chForm" style="padding:20px;display:flex;flex-direction:column;gap:16px;">
                         <div>
                             <label style="display:block;font-size:13px;font-weight:700;color:#334155;margin-bottom:6px;">Nội dung câu hỏi <span style="color:#ef4444;">*</span></label>
-                            <textarea id="chTitleInput" rows="3" placeholder="Nhập câu hỏi hoặc vấn đề cần thảo luận..." style="width:100%;padding:10px 14px;border:1.5px solid #cbd5e1;border-radius:10px;font-size:14px;outline:none;box-sizing:border-box;" required></textarea>
+                            <textarea id="chTitleInput" rows="3" placeholder="Nhập câu hỏi hoặc vấn đề cần thảo luận..." autocapitalize="sentences" style="width:100%;padding:10px 14px;border:1.5px solid #cbd5e1;border-radius:10px;font-size:14px;outline:none;box-sizing:border-box;" required></textarea>
                         </div>
                         <div>
                             <label style="display:block;font-size:13px;font-weight:700;color:#334155;margin-bottom:6px;">Mức độ ưu tiên</label>
@@ -267,6 +267,13 @@
         return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
     }
 
+    function capitalizeFirstLetter(str) {
+        if (!str) return '';
+        const trimmed = String(str).trim();
+        if (!trimmed) return '';
+        return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+    }
+
     function filterAndRender() {
         const listEl = document.getElementById('chListContainer');
         if (!listEl) return;
@@ -325,11 +332,12 @@
             const imp = isImportant(q);
             const creatorName = q.creator_name || q.creator_username || 'Ẩn danh';
             const uStyle = getUserBadgeStyle(q.creator_id, creatorName);
+            const titleFormatted = capitalizeFirstLetter(q.title);
 
             return `
                 <div style="background:white;border-radius:12px;padding:14px 18px;box-shadow:0 2px 8px rgba(0,0,0,0.03);border-left:4px solid ${imp ? '#ef4444' : (isCompleted ? '#22c55e' : '#f97316')};${imp ? 'background:#fffdfd;' : ''}display:flex;flex-direction:column;gap:10px;transition:all 0.15s;" onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,0.07)'" onmouseout="this.style.boxShadow='0 2px 8px rgba(0,0,0,0.03)'">
                     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
-                        <div style="font-size:14.5px;font-weight:600;color:#0f172a;line-height:1.5;opacity:${isCompleted ? '0.85' : '1'};word-break:break-word;white-space:pre-wrap;flex:1;">${idx + 1} - ${(q.title || '').trim()}</div>
+                        <div style="font-size:14.5px;font-weight:600;color:#0f172a;line-height:1.5;opacity:${isCompleted ? '0.85' : '1'};word-break:break-word;white-space:pre-wrap;flex:1;">${idx + 1} - ${titleFormatted}</div>
                         ${imp ? `<span class="ch-badge-important" title="Quan trọng">🔥</span>` : ''}
                     </div>
                     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding-top:8px;border-top:1px dashed #f1f5f9;">
@@ -365,7 +373,7 @@
         if (question) {
             _editingQuestionId = question.id;
             modalTitle.textContent = 'CHỈNH SỬA CÂU HỎI TRƯỚC BUỔI HỌP';
-            titleInput.value = question.title || '';
+            titleInput.value = capitalizeFirstLetter(question.title || '');
             const imp = isImportant(question);
             if (importantInput) {
                 importantInput.selectedIndex = imp ? 1 : 0;
@@ -397,7 +405,8 @@
 
     async function handleFormSubmit(e) {
         e.preventDefault();
-        const title = document.getElementById('chTitleInput')?.value.trim();
+        const rawTitle = document.getElementById('chTitleInput')?.value.trim();
+        const title = capitalizeFirstLetter(rawTitle);
         const importantEl = document.getElementById('chImportantInput');
         const is_important = importantEl ? (importantEl.value === 'true' || importantEl.selectedIndex === 1) : false;
         const existing = _editingQuestionId ? _allQuestions.find(q => q.id === _editingQuestionId) : null;

@@ -38,6 +38,13 @@ async function preMeetingQuestionsRoutes(fastify, options) {
         }
     });
 
+    function capitalizeFirstLetter(str) {
+        if (!str) return '';
+        const trimmed = String(str).trim();
+        if (!trimmed) return '';
+        return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+    }
+
     // POST /api/pre-meeting-questions — Tạo mới câu hỏi trước buổi họp
     fastify.post('/api/pre-meeting-questions', { preHandler: [authenticate] }, async (request, reply) => {
         try {
@@ -46,6 +53,7 @@ async function preMeetingQuestionsRoutes(fastify, options) {
                 return reply.code(400).send({ error: 'Nội dung câu hỏi không được để trống' });
             }
 
+            const formattedTitle = capitalizeFirstLetter(title);
             const creatorId = request.user.id;
             const initStatus = status === 'completed' ? 'completed' : 'pending';
             const isImp = is_important === true || is_important === 'true' || is_important === 1 || is_important === '1';
@@ -53,7 +61,7 @@ async function preMeetingQuestionsRoutes(fastify, options) {
             const result = await db.run(
                 `INSERT INTO pre_meeting_questions (title, content, status, is_important, creator_id, created_at, updated_at)
                  VALUES ($1, $2, $3, $4, $5, NOW(), NOW()) RETURNING id`,
-                [title.trim(), (content || '').trim(), initStatus, isImp, creatorId]
+                [formattedTitle, (content || '').trim(), initStatus, isImp, creatorId]
             );
 
             return { success: true, id: result?.id || result?.insertId, message: 'Đã thêm câu hỏi mới thành công' };
@@ -113,12 +121,13 @@ async function preMeetingQuestionsRoutes(fastify, options) {
                 return reply.code(403).send({ error: 'Bạn chỉ có quyền chỉnh sửa câu hỏi do chính mình tạo' });
             }
 
+            const formattedTitle = capitalizeFirstLetter(title);
             const newStatus = status === 'completed' ? 'completed' : 'pending';
             const isImp = is_important === true || is_important === 'true' || is_important === 1 || is_important === '1';
 
             await db.run(
                 'UPDATE pre_meeting_questions SET title = $1, content = $2, status = $3, is_important = $4, updated_at = NOW() WHERE id = $5',
-                [title.trim(), (content || '').trim(), newStatus, isImp, id]
+                [formattedTitle, (content || '').trim(), newStatus, isImp, id]
             );
 
             return { success: true, message: 'Đã cập nhật câu hỏi' };
