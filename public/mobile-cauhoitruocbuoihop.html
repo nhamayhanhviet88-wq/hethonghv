@@ -114,11 +114,11 @@
             50% { opacity: 0.35; transform: scale(0.96); }
         }
         .m-badge-important {
-            display: inline-flex; align-items: center; gap: 3px;
-            background: #fef2f2; color: #dc2626; border: 1.5px solid #fca5a5;
-            padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 800;
+            display: inline-flex; align-items: center; justify-content: center;
+            background: #fef2f2; border: 1.5px solid #fca5a5;
+            width: 24px; height: 24px; border-radius: 50%; font-size: 13px;
             animation: blinkImportant 1.2s infinite ease-in-out;
-            margin-right: 6px; vertical-align: middle;
+            flex-shrink: 0;
         }
 
         /* Bottom Sheet Modal */
@@ -403,7 +403,7 @@
                     <div class="m-card ${isCompleted ? 'completed' : ''}" style="${imp ? 'border-left: 4px solid #ef4444; background: #fffdfd;' : ''}">
                         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px;">
                             <div class="m-card-title" style="flex:1;margin-bottom:0;">${idx + 1} - ${(q.title || '').trim()}</div>
-                            ${imp ? `<span class="m-badge-important" style="flex-shrink:0;white-space:nowrap;">🔥 QUAN TRỌNG</span>` : ''}
+                            ${imp ? `<span class="m-badge-important" title="Quan trọng">🔥</span>` : ''}
                         </div>
                         <div class="m-card-footer">
                             <div class="m-card-meta">

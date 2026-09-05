@@ -110,11 +110,11 @@
                     50% { opacity: 0.35; transform: scale(0.96); }
                 }
                 .ch-badge-important {
-                    display: inline-flex; align-items: center; gap: 3px;
-                    background: #fef2f2; color: #dc2626; border: 1.5px solid #fca5a5;
-                    padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 800;
+                    display: inline-flex; align-items: center; justify-content: center;
+                    background: #fef2f2; border: 1.5px solid #fca5a5;
+                    width: 26px; height: 26px; border-radius: 50%; font-size: 14px;
                     animation: blinkImportant 1.2s infinite ease-in-out;
-                    margin-right: 6px; vertical-align: middle;
+                    flex-shrink: 0; cursor: default;
                 }
             </style>
         `;
@@ -240,7 +240,7 @@
                 <div style="background:white;border-radius:12px;padding:14px 18px;box-shadow:0 2px 8px rgba(0,0,0,0.03);border-left:4px solid ${imp ? '#ef4444' : (isCompleted ? '#22c55e' : '#f97316')};${imp ? 'background:#fffdfd;' : ''}display:flex;flex-direction:column;gap:10px;transition:all 0.15s;" onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,0.07)'" onmouseout="this.style.boxShadow='0 2px 8px rgba(0,0,0,0.03)'">
                     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
                         <div style="font-size:14.5px;font-weight:600;color:#0f172a;line-height:1.5;opacity:${isCompleted ? '0.85' : '1'};word-break:break-word;white-space:pre-wrap;flex:1;">${idx + 1} - ${(q.title || '').trim()}</div>
-                        ${imp ? `<span class="ch-badge-important" style="flex-shrink:0;white-space:nowrap;margin-right:0;">🔥 QUAN TRỌNG</span>` : ''}
+                        ${imp ? `<span class="ch-badge-important" title="Quan trọng">🔥</span>` : ''}
                     </div>
                     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding-top:8px;border-top:1px dashed #f1f5f9;">
                         <div style="font-size:12px;color:#64748b;display:flex;align-items:center;gap:12px;">
